@@ -6,6 +6,14 @@ Pull-request CI runs the frontend, Rust, and Tauri packaging smoke checks on `ma
 
 Signing and notarization are secret-driven release steps and are not part of pull-request CI. Certificates, API keys, signing identities, generated local databases, and audit snapshots must never be committed or uploaded. NerfTrack's original source code is licensed under GPL-3.0-only; third-party components retain their respective licenses.
 
+## 1.1.3 — 2026-08-23
+
+- Keep the persisted graph visible immediately when NerfTrack reopens while background reconciliation imports newly written local records.
+- Move the models.dev pricing request outside the SQLite lock so a slow or unavailable network request cannot delay cached graph values.
+- Report background startup work as a non-blocking local refresh instead of clearing the existing graph until indexing finishes.
+
+Validation: frontend typecheck, tests, lint, formatting, Rust formatting, tests, Clippy, Tauri app build, installation, ad-hoc signing, and installed bundle verification.
+
 ## 1.1.2 — 2026-08-20
 
 - Added full Codex Auto Review pricing by mapping `codex-auto-review` to GPT-5.6 Luna rates for input, cached input, and output tokens, including historical repricing and future imports.

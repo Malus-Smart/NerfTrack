@@ -463,12 +463,6 @@ export default function App() {
       // worker. Show that state immediately instead of keeping the whole window
       // behind the initial data-read promise.
       setStatus(nextStatus);
-      if (nextStatus.state === 'recalibrating') {
-        setIsLoading(false);
-        setQuote(null);
-        setLoadError(false);
-        return;
-      }
       const [nextQuote, nextHistories, nextAnnotations, nextDiagnostics] = await Promise.all([
         getCurrentQuote(),
         Promise.all(historyRanges.map(async (item) => [item, await getHistory(item)] as const)),

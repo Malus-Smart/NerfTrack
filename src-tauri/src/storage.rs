@@ -547,15 +547,26 @@ impl Database {
             .map_err(|_| "unable to read models.dev pricing state".to_string())
     }
 
-    pub fn refresh_models_dev_pricing(&mut self) -> Result<(), String> {
+    pub(crate) fn models_dev_pricing_etag(&self) -> Result<Option<String>, String> {
+        if self.remote_pricing.digest.is_none() {
+            return Ok(None);
+        }
+        Ok(self
+            .current_models_dev_snapshot()?
+            .and_then(|(_, _, etag)| etag))
+    }
+
+    pub(crate) fn apply_models_dev_pricing(
+        &mut self,
+        outcome: pricing::FetchOutcome,
+    ) -> Result<(), String> {
         let current = if self.remote_pricing.digest.is_some() {
             self.current_models_dev_snapshot()?
         } else {
             None
         };
         let current_id = current.as_ref().map(|snapshot| snapshot.0);
-        let etag = current.as_ref().and_then(|snapshot| snapshot.2.as_deref());
-        match pricing::fetch_models_dev(etag)? {
+        match outcome {
             pricing::FetchOutcome::NotModified { etag } => {
                 if let Some((snapshot_id, _, _)) = current {
                     self.connection
@@ -623,6 +634,12 @@ impl Database {
                 Ok(())
             }
         }
+    }
+
+    pub fn refresh_models_dev_pricing(&mut self) -> Result<(), String> {
+        let etag = self.models_dev_pricing_etag()?;
+        let outcome = pricing::fetch_models_dev(etag.as_deref())?;
+        self.apply_models_dev_pricing(outcome)
     }
 
     fn migrate(&mut self) -> Result<(), String> {
@@ -1039,7 +1056,7 @@ impl Database {
         Ok(())
     }
 
-    fn finish_background_initialization(
+    pub(crate) fn finish_background_initialization(
         &mut self,
         historical_home: Option<&Path>,
     ) -> Result<(), String> {

@@ -118,10 +118,10 @@ impl AppState {
                 let result = (|| {
                     let historical_home =
                         discovery::discover_codex_home(home_override.as_deref()).0;
-                    database
-                        .lock()
-                        .map_err(|_| "database writer is unavailable".to_string())?
-                        .initialize_background(historical_home.as_deref())?;
+                    Self::initialize_background_without_blocking(
+                        &database,
+                        historical_home.as_deref(),
+                    )?;
                     Self::reconcile_with_database(&database, home_override.as_deref())
                 })();
                 if let Ok(mut work) = background.lock() {
@@ -139,6 +139,32 @@ impl AppState {
                 work.last_reconciliation_failed = true;
             }
         }
+    }
+
+    fn initialize_background_without_blocking(
+        database: &Arc<Mutex<storage::Database>>,
+        historical_home: Option<&Path>,
+    ) -> Result<(), String> {
+        let etag = database
+            .lock()
+            .map_err(|_| "database reader is unavailable".to_string())?
+            .models_dev_pricing_etag()?;
+        let refresh_error = match pricing::fetch_models_dev(etag.as_deref()) {
+            Ok(outcome) => database
+                .lock()
+                .map_err(|_| "database writer is unavailable".to_string())?
+                .apply_models_dev_pricing(outcome)
+                .err(),
+            Err(error) => Some(error),
+        };
+        let result = database
+            .lock()
+            .map_err(|_| "database writer is unavailable".to_string())?
+            .finish_background_initialization(historical_home);
+        if let Some(error) = refresh_error {
+            eprintln!("models.dev pricing refresh deferred: {error}");
+        }
+        result
     }
 
     fn request_background_reconcile(&self) {
@@ -175,10 +201,10 @@ impl AppState {
                     if reinitialize {
                         let historical_home =
                             discovery::discover_codex_home(home_override.as_deref()).0;
-                        database
-                            .lock()
-                            .map_err(|_| "database writer is unavailable".to_string())?
-                            .initialize_background(historical_home.as_deref())?;
+                        Self::initialize_background_without_blocking(
+                            &database,
+                            historical_home.as_deref(),
+                        )?;
                     }
                     Self::reconcile_with_database(&database, home_override.as_deref())
                 })();
@@ -345,23 +371,6 @@ impl AppState {
             IntegrationMode::Unknown => false,
         };
         let background = self.background_snapshot();
-        if background.phase == BackgroundPhase::Initializing {
-            return AppStatus {
-                state: AppStatusState::Recalibrating,
-                label: "Indexing local data".into(),
-                detail: "Repricing history and scanning local Codex logs…".into(),
-                integration_mode,
-                account_state: AccountState::Unknown,
-                connection_quality: ConnectionQuality::Degraded,
-                plan: None,
-                reset_at: None,
-                last_updated_at: Some(now_ms()),
-                codex_home,
-                codex_executable,
-                app_server,
-                data_quality: DataQuality::Partial,
-            };
-        }
         let database = self.database.lock().ok();
         let diagnostics = database
             .as_ref()
@@ -394,12 +403,19 @@ impl AppState {
         } else {
             format!("{mode} · waiting for usage")
         };
-        if background.reconciliation_in_flight && !collection_failed {
+        if (background.phase == BackgroundPhase::Initializing
+            || background.reconciliation_in_flight)
+            && !collection_failed
+        {
             state = AppStatusState::Detecting;
             label = "Refreshing local data";
             connection_quality = ConnectionQuality::Degraded;
             data_quality = DataQuality::Partial;
-            detail = format!("{mode} · importing new usage");
+            detail = if background.phase == BackgroundPhase::Initializing {
+                format!("{mode} · using saved data while refreshing local logs")
+            } else {
+                format!("{mode} · importing new usage")
+            };
         }
         AppStatus {
             state,
