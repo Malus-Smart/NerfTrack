@@ -1,0 +1,37 @@
+title: "📊 Graph share: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Share a privacy-safe NerfTrack graph and tell the community what you learned.
+
+        To prepare your share, open NerfTrack's **History** view and take a screenshot of the graph. Attach 1–10 screenshots to your discussion, then check that they contain only aggregate graph data. Redact usernames, prompts, raw Codex records, credentials, account identifiers, and complete local paths before posting.
+
+  - type: input
+    id: graph-screenshots
+    attributes:
+      label: Insert Screenshot(s) of your NerfTrack graph
+      description: Attach at least 1 and no more than 10 privacy-safe screenshots in the discussion composer. Use screenshots from NerfTrack's History graph and redact sensitive information first.
+      placeholder: "Attach 1–10 screenshots of your NerfTrack History graph"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: plan
+    attributes:
+      label: "Your Plan:"
+      options:
+        - Plus
+        - Pro 5x
+        - Pro 20x
+    validations:
+      required: true
+
+  - type: textarea
+    id: takeaway
+    attributes:
+      label: What did you learn?
+      description: Share the pattern, change, or insight you noticed in your graph.
+      placeholder: "Example: I noticed my estimated weekly API-equivalent value rose after..."
+    validations:
+      required: true
