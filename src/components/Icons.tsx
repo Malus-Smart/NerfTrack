@@ -17,6 +17,7 @@ export type IconName =
   | 'home'
   | 'info'
   | 'lock'
+  | 'message'
   | 'more'
   | 'play'
   | 'refresh'
@@ -154,6 +155,14 @@ export function Icon({ name, size = 24, strokeWidth = 1.8, className }: IconProp
           <rect x="4.2" y="10" width="15.6" height="10" rx="2" />
           <path d="M7.5 10V7.8a4.5 4.5 0 0 1 9 0V10" />
           <path d="M12 14v2.2" />
+        </>
+      );
+      break;
+    case 'message':
+      content = (
+        <>
+          <path d="M5.2 5.2h13.6a2 2 0 0 1 2 2v7.2a2 2 0 0 1-2 2H11l-4.4 3v-3H5.2a2 2 0 0 1-2-2V7.2a2 2 0 0 1 2-2Z" />
+          <path d="M7.5 10.8h.1M12 10.8h.1M16.5 10.8h.1" />
         </>
       );
       break;

@@ -6,6 +6,14 @@ Pull-request CI runs the frontend, Rust, and Tauri packaging smoke checks on `ma
 
 Signing and notarization are secret-driven release steps and are not part of pull-request CI. Certificates, API keys, signing identities, generated local databases, and audit snapshots must never be committed or uploaded. NerfTrack's original source code is licensed under GPL-3.0-only; third-party components retain their respective licenses.
 
+## 1.1.4 — 2026-08-25
+
+- Added a prominent Home-header action for browsing and posting in NerfTrack's Share Your Graph discussion.
+- Fixed external GitHub URL validation so discussion category paths open correctly while non-HTTPS GitHub URLs, query strings, and fragments remain rejected.
+- Added regression coverage for the Share Your Graph action and nested GitHub discussion URLs.
+
+Validation: frontend formatting, lint, typecheck, tests, Rust formatting, Clippy, Rust tests, Tauri app build, installation, ad-hoc signing, and installed bundle verification.
+
 ## 1.1.3 — 2026-08-23
 
 - Keep the persisted graph visible immediately when NerfTrack reopens while background reconciliation imports newly written local records.

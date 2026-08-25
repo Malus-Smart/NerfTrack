@@ -762,6 +762,40 @@ p {
 .refresh-button.is-refreshing svg {
   animation: refresh-spin 800ms linear infinite;
 }
+.share-graph-hero-button {
+  display: inline-flex;
+  min-height: 51px;
+  align-items: center;
+  gap: 9px;
+  padding: 0 16px;
+  color: #e6ffea;
+  font-size: 14px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  background: linear-gradient(145deg, #245d3e, #1a422f);
+  border: 1px solid rgba(92, 240, 122, 0.56);
+  border-radius: 11px;
+  box-shadow:
+    0 8px 22px rgba(16, 64, 37, 0.22),
+    inset 0 0 0 1px rgba(191, 255, 202, 0.06);
+  transition:
+    background 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    transform 160ms ease;
+}
+.share-graph-hero-button:hover:not(:disabled) {
+  background: linear-gradient(145deg, #2f7850, #215239);
+  border-color: rgba(121, 255, 145, 0.82);
+  box-shadow:
+    0 10px 26px rgba(16, 64, 37, 0.3),
+    inset 0 0 0 1px rgba(191, 255, 202, 0.1);
+  transform: translateY(-1px);
+}
+.share-graph-hero-button:disabled {
+  cursor: wait;
+  opacity: 0.68;
+}
 @keyframes refresh-spin {
   to {
     transform: rotate(360deg);
@@ -1081,6 +1115,11 @@ p {
 }
 .chart-actions button:hover {
   color: var(--green);
+}
+.share-graph-error {
+  margin: -4px 0 14px;
+  color: #ffaaa4;
+  font-size: 12px;
 }
 
 .metric-grid {
@@ -2334,7 +2373,7 @@ p {
   }
   .hero-controls {
     display: grid;
-    grid-template-columns: 1fr auto auto;
+    grid-template-columns: minmax(0, 1fr) auto;
     justify-content: stretch;
     padding-top: 0;
   }
@@ -2347,6 +2386,9 @@ p {
     min-width: 0;
     flex: 1;
     padding: 0 6px;
+  }
+  .share-graph-hero-button {
+    justify-content: center;
   }
   .hero-title-wrap {
     align-items: flex-start;
@@ -2416,6 +2458,11 @@ p {
     align-items: flex-start;
     flex-direction: column;
     gap: 12px;
+  }
+  .chart-actions {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 9px;
   }
   .discovery-card {
     min-height: 188px;

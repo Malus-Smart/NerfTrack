@@ -86,6 +86,30 @@ fn parse_repository_url(repository_url: &str) -> Result<(String, String), String
     Ok((owner, repository))
 }
 
+fn validate_external_github_url(url: &str) -> Result<(), String> {
+    let parsed = Url::parse(url.trim()).map_err(|_| "GitHub URL is not a valid URL".to_string())?;
+    if parsed.scheme() != "https"
+        || parsed.host_str() != Some("github.com")
+        || parsed.port().is_some()
+        || parsed.query().is_some()
+        || parsed.fragment().is_some()
+    {
+        return Err("GitHub URL must use https://github.com without a query or fragment".into());
+    }
+    let segments: Vec<&str> = parsed
+        .path_segments()
+        .ok_or_else(|| "GitHub URL has no repository path".to_string())?
+        .filter(|segment| !segment.is_empty())
+        .collect();
+    if segments.len() < 2 {
+        return Err("GitHub URL must include an owner and repository".into());
+    }
+    valid_repository_segment(segments[0], "owner")?;
+    let repository = segments[1].strip_suffix(".git").unwrap_or(segments[1]);
+    valid_repository_segment(repository, "repository")?;
+    Ok(())
+}
+
 fn valid_repository_segment(value: &str, label: &str) -> Result<String, String> {
     if value.is_empty()
         || !value.chars().all(|character| {
@@ -1280,7 +1304,7 @@ fn launch_external_url(url: &str) -> Result<(), String> {
 
 #[tauri::command]
 pub fn open_external_url(url: String) -> Result<(), String> {
-    parse_repository_url(&url)?;
+    validate_external_github_url(&url)?;
     launch_external_url(url.trim())
 }
 
@@ -1296,6 +1320,19 @@ mod tests {
         );
         assert!(parse_repository_url("https://github.com/nerftrack/nerftrack/releases").is_err());
         assert!(parse_repository_url("http://github.com/nerftrack/nerftrack").is_err());
+    }
+
+    #[test]
+    fn accepts_discussion_paths_for_external_links() {
+        assert!(validate_external_github_url(
+            "https://github.com/NerfTrack/NerfTrack/discussions/categories/-share-your-graph"
+        )
+        .is_ok());
+        assert!(validate_external_github_url("https://github.com/NerfTrack").is_err());
+        assert!(validate_external_github_url(
+            "https://github.com/NerfTrack/NerfTrack/discussions?sort=new"
+        )
+        .is_err());
     }
 
     #[test]

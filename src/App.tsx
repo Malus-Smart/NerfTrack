@@ -34,7 +34,7 @@ import {
   updateSettings,
 } from './lib/commands';
 import { demoQuote, demoStatus } from './lib/fixtures';
-import { GITHUB_REPOSITORY_URL } from './lib/config';
+import { GITHUB_REPOSITORY_URL, SHARE_GRAPH_DISCUSSION_URL } from './lib/config';
 import { getChartEstimate } from './lib/comparison';
 import {
   checkForUpdate,
@@ -43,6 +43,7 @@ import {
   downloadUpdate,
   initialUpdateState,
   installUpdate,
+  openExternalUrl,
 } from './lib/updater';
 import type { Annotation, DiagnosticsSummary, HistoryResponse } from './domain';
 import type { UpdateCheckResult, UpdateState } from './domain';
@@ -232,6 +233,7 @@ export function HomeView({
   onRefresh,
   onRangeChange,
   onResetAnnotations,
+  onShareGraph,
 }: {
   status: AppStatus;
   quote: CurrentQuote | null;
@@ -243,11 +245,14 @@ export function HomeView({
   onRefresh: () => void;
   onRangeChange: (range: Range) => void;
   onResetAnnotations: () => void;
+  onShareGraph?: () => Promise<void>;
 }) {
   const [scrubbed, setScrubbed] = useState<{
     point: HistoryPoint;
     anchor: HistoryPoint | null;
   } | null>(null);
+  const [isSharing, setIsSharing] = useState(false);
+  const [shareError, setShareError] = useState<string | null>(null);
   const displayValue = scrubbed
     ? getChartEstimate(scrubbed.point)
     : (quote?.estimatedWeeklyValueUsd ?? null);
@@ -295,6 +300,19 @@ export function HomeView({
     onRangeChange(nextRange);
   };
 
+  const shareGraph = async () => {
+    if (!onShareGraph || isSharing) return;
+    setShareError(null);
+    setIsSharing(true);
+    try {
+      await onShareGraph();
+    } catch (cause) {
+      setShareError(`Couldn’t open the Share Your Graph page: ${errorMessage(cause)}`);
+    } finally {
+      setIsSharing(false);
+    }
+  };
+
   return (
     <section className="home-page page-shell">
       <header className="hero-heading">
@@ -311,6 +329,16 @@ export function HomeView({
         </div>
         <div className="hero-controls">
           <RangeSelector range={range} onChange={selectRange} />
+          <button
+            className="share-graph-hero-button"
+            type="button"
+            onClick={() => void shareGraph()}
+            disabled={!onShareGraph || isSharing}
+            title="Browse and post in NerfTrack’s Share Your Graph discussion"
+          >
+            <Icon name="message" size={17} />
+            <span>{isSharing ? 'Opening…' : 'Share your graph'}</span>
+          </button>
           <button
             className={`refresh-button ${isRefreshing ? 'is-refreshing' : ''}`}
             aria-label="Refresh data"
@@ -353,11 +381,16 @@ export function HomeView({
               ? 'Showing all available log history'
               : 'Complete range'}
           </span>
-          <button onClick={onResetAnnotations}>
+          <button type="button" onClick={onResetAnnotations}>
             <Icon name="refresh" size={14} />
             Reset annotations
           </button>
         </div>
+        {shareError && (
+          <p className="share-graph-error" role="alert">
+            {shareError}
+          </p>
+        )}
       </div>
       <div className="metric-grid">
         <MetricCard
@@ -656,6 +689,10 @@ export default function App() {
 
   const handleOpenStarterPage = () => setStarterPageVisible(true);
 
+  const handleShareGraph = useCallback(async () => {
+    await openExternalUrl(SHARE_GRAPH_DISCUSSION_URL);
+  }, []);
+
   const handleResetAllData = async () => {
     await resetAllData();
     historyCache.current = {};
@@ -821,6 +858,7 @@ export default function App() {
             isRefreshing={isRefreshing}
             onRefresh={() => void refresh()}
             onRangeChange={handleRangeChange}
+            onShareGraph={handleShareGraph}
             onResetAnnotations={async () => {
               try {
                 await resetAnnotations();

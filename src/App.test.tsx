@@ -197,6 +197,29 @@ describe('NerfTrack app shell', () => {
     );
   });
 
+  it('opens the Share Your Graph discussion from the home graph', async () => {
+    const user = userEvent.setup();
+    const onShareGraph = vi.fn().mockResolvedValue(undefined);
+    render(
+      <HomeView
+        status={demoStatus}
+        quote={demoQuote}
+        history={customHistory([historyPoint()])}
+        annotations={[]}
+        range="1D"
+        reducedMotion={false}
+        isRefreshing={false}
+        onRefresh={vi.fn()}
+        onRangeChange={vi.fn()}
+        onResetAnnotations={vi.fn()}
+        onShareGraph={onShareGraph}
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Share your graph' }));
+    expect(onShareGraph).toHaveBeenCalledOnce();
+  });
+
   it('shows a same-window calibration difference without neutral styling', () => {
     const chart = renderHomeWithHistory(
       customHistory([
