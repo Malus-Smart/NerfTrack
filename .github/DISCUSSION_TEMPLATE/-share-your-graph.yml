@@ -34,4 +34,4 @@ body:
       description: Share the pattern, change, or insight you noticed in your graph.
       placeholder: 'Example: I noticed my estimated weekly API-equivalent value rose after...'
     validations:
-      required: true
+      required: false
