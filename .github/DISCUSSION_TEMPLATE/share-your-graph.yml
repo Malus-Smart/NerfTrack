@@ -1,4 +1,4 @@
-title: "📊 Graph share: "
+title: '📊 Graph share: '
 body:
   - type: markdown
     attributes:
@@ -12,14 +12,14 @@ body:
     attributes:
       label: Insert Screenshot(s) of your NerfTrack graph
       description: Attach at least 1 and no more than 10 privacy-safe screenshots in the discussion composer. Use screenshots from NerfTrack's History graph and redact sensitive information first.
-      placeholder: "Attach 1–10 screenshots of your NerfTrack History graph"
+      placeholder: 'Attach 1–10 screenshots of your NerfTrack History graph'
     validations:
       required: true
 
   - type: dropdown
     id: plan
     attributes:
-      label: "Your Plan:"
+      label: 'Your Plan:'
       options:
         - Plus
         - Pro 5x
@@ -32,6 +32,6 @@ body:
     attributes:
       label: What did you learn?
       description: Share the pattern, change, or insight you noticed in your graph.
-      placeholder: "Example: I noticed my estimated weekly API-equivalent value rose after..."
+      placeholder: 'Example: I noticed my estimated weekly API-equivalent value rose after...'
     validations:
       required: true
