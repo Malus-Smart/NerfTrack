@@ -7,7 +7,7 @@ body:
 
         To prepare your share, open NerfTrack's **History** view and take a screenshot of the graph. Attach 1–10 screenshots to your discussion, then check that they contain only aggregate graph data. Redact usernames, prompts, raw Codex records, credentials, account identifiers, and complete local paths before posting.
 
-  - type: input
+  - type: textarea
     id: graph-screenshots
     attributes:
       label: Insert Screenshot(s) of your NerfTrack graph
