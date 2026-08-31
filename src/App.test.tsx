@@ -80,6 +80,7 @@ describe('NerfTrack app shell', () => {
     expect(screen.getByText('Weekly Used')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Refresh data' })).toBeInTheDocument();
     expect(screen.getByText(/Live ·/)).toBeInTheDocument();
+    expect(await screen.findByText('CLI Mode · 846 usage events observed')).toBeInTheDocument();
   });
 
   it('switches to setup and changes a monitoring control', async () => {
@@ -153,6 +154,40 @@ describe('NerfTrack app shell', () => {
 
     expect(screen.getByRole('heading', { name: 'Codex 每週 API 等值估算' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '重新整理資料' })).toBeInTheDocument();
+  });
+
+  it('localizes routine reset reasons in history', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(await screen.findByRole('button', { name: 'Settings' }));
+    await user.selectOptions(screen.getByLabelText('Language'), 'zh-CN');
+    await user.click(screen.getByRole('button', { name: '历史记录' }));
+
+    expect(screen.getAllByText('计划重置').length).toBeGreaterThan(0);
+  });
+
+  it('gives the reduced-motion switch a localized accessible name', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(await screen.findByRole('button', { name: 'Settings' }));
+    await user.selectOptions(screen.getByLabelText('Language'), 'zh-CN');
+
+    expect(screen.getByRole('switch', { name: '减少动态效果' })).toBeInTheDocument();
+  });
+
+  it('retranslates a visible settings validation message after switching language', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(await screen.findByRole('button', { name: 'Settings' }));
+    await user.click(screen.getByRole('button', { name: 'Add override' }));
+    await user.click(screen.getByRole('button', { name: 'Save pricing' }));
+    expect(screen.getByRole('alert')).toHaveTextContent('Each override needs a model ID.');
+
+    await user.selectOptions(screen.getByLabelText('Language'), 'zh-CN');
+    expect(screen.getByRole('alert')).toHaveTextContent('每条覆盖价格都需要模型 ID。');
   });
 
   it('shows an in-app confirmation before resetting local data', async () => {

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Annotation, HistoryPoint, Range } from '../domain';
-import { useI18n, type Locale } from '../i18n';
+import { formatResetReason, useI18n, type Locale, type MessageKey } from '../i18n';
 import { getChartEstimate, isComparisonEligiblePoint } from '../lib/comparison';
 import { formatYAxisTick, getChartYAxisScale, yAxisValueToY } from '../lib/chartScale';
 import { Icon } from './Icons';
@@ -64,27 +64,29 @@ function formatDate(timestamp: number, range: Range, locale: Locale) {
   return date.toLocaleDateString(locale, { month: 'short', day: 'numeric' });
 }
 
-function formatUsd(value: number | null) {
-  return value === null ? '—' : `$${value.toFixed(2)}`;
+function formatUsd(value: number | null, locale: Locale) {
+  return value === null
+    ? '—'
+    : new Intl.NumberFormat(locale, {
+        style: 'currency',
+        currency: 'USD',
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }).format(value);
 }
 
-function annotationLabel(label: string) {
-  const compact = label
-    .replace(/^Weekly window · /, '')
-    .replace(/_/g, ' ')
-    .replace('reported reset changed', 'reset changed')
-    .replace('usage decreased', 'usage drop');
-  return compact.charAt(0).toUpperCase() + compact.slice(1);
-}
+type Translate = (key: MessageKey, values?: Record<string, string | number>) => string;
 
-function formatGapDuration(durationMs: number) {
+function formatGapDuration(durationMs: number, locale: Locale, t: Translate) {
+  const format = (value: number, key: MessageKey) =>
+    t(key, { value: value.toLocaleString(locale) });
   const totalMinutes = Math.max(1, Math.round(durationMs / 60_000));
-  if (totalMinutes < 60) return `${totalMinutes}m`;
+  if (totalMinutes < 60) return format(totalMinutes, 'chart.duration.minutes');
   const totalHours = Math.round(totalMinutes / 60);
-  if (totalHours < 48) return `${totalHours}h`;
+  if (totalHours < 48) return format(totalHours, 'chart.duration.hours');
   const days = Math.round(totalHours / 24);
-  if (days < 60) return `${days}d`;
-  return `${Math.round(days / 30)}mo`;
+  if (days < 60) return format(days, 'chart.duration.days');
+  return format(Math.round(days / 30), 'chart.duration.months');
 }
 
 function nearestPoint(points: HistoryPoint[], timestamp: number) {
@@ -437,7 +439,7 @@ export function UsageChart({
         id: annotation.id,
         x: timestampToX(timeline, annotation.timestamp),
         count: 1,
-        label: `${annotationLabel(annotation.label)} · ${new Date(
+        label: `${formatResetReason(locale, annotation.label)} · ${new Date(
           annotation.timestamp,
         ).toLocaleString(locale, {
           month: 'short',
@@ -600,7 +602,9 @@ export function UsageChart({
               } as React.CSSProperties
             }
           >
-            {t('chart.noUsage', { duration: formatGapDuration(noUsageHover.durationMs) })}
+            {t('chart.noUsage', {
+              duration: formatGapDuration(noUsageHover.durationMs, locale, t),
+            })}
           </div>
         )}
         {annotationHover && (
@@ -628,9 +632,9 @@ export function UsageChart({
           >
             <Icon name="calendar" size={14} />
             <span>{formatDate(selected.timestamp, range, locale)}</span>
-            <strong>{formatUsd(historySignal(selected))}</strong>
+            <strong>{formatUsd(historySignal(selected), locale)}</strong>
             <small>
-              {t('chart.observed')}: {formatUsd(selected.observedCostUsd)}
+              {t('chart.observed')}: {formatUsd(selected.observedCostUsd, locale)}
             </small>
           </div>
         )}
@@ -754,7 +758,7 @@ export function UsageChart({
                 className="chart-inactivity-gap"
                 role="img"
                 aria-label={t('chart.noActivityFor', {
-                  duration: formatGapDuration(durationMs),
+                  duration: formatGapDuration(durationMs, locale, t),
                 })}
                 tabIndex={0}
                 onPointerEnter={() => setNoUsageHover({ x: centerX, durationMs })}
@@ -763,7 +767,9 @@ export function UsageChart({
                 onBlur={() => setNoUsageHover(null)}
               >
                 <title>
-                  {t('chart.noActivityFor', { duration: formatGapDuration(durationMs) })}
+                  {t('chart.noActivityFor', {
+                    duration: formatGapDuration(durationMs, locale, t),
+                  })}
                 </title>
                 <rect
                   x={gap.startX}
@@ -853,7 +859,7 @@ export function UsageChart({
             const y = yAxisValueToY(value, yAxisScale, plotTop, plotBottom);
             return (
               <text key={`y-${value}`} className="chart-y-label" x="963" y={y + 4}>
-                {formatYAxisTick(value)}
+                {formatYAxisTick(value, locale)}
               </text>
             );
           })}

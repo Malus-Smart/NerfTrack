@@ -1,5 +1,5 @@
 import type { HistoryResponse, Range } from '../domain';
-import { useI18n } from '../i18n';
+import { formatResetReason, useI18n } from '../i18n';
 import { Icon } from './Icons';
 
 interface HistoryViewProps {
@@ -103,7 +103,11 @@ export function HistoryView({ history, range, onRangeChange }: HistoryViewProps)
               <span>
                 {point.weeklyUsedPercent === null ? '—' : `${Math.round(point.weeklyUsedPercent)}%`}
               </span>
-              <span>{point.resetReason?.replaceAll('_', ' ') ?? t('history.weeklyWindow')}</span>
+              <span>
+                {point.resetReason
+                  ? formatResetReason(locale, point.resetReason)
+                  : t('history.weeklyWindow')}
+              </span>
               <span className={`table-status ${point.isFinalized ? 'finalized' : 'settling'}`}>
                 {point.isFinalized ? t('history.finalized') : t('status.settling')}
               </span>

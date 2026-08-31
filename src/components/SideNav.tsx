@@ -5,6 +5,7 @@ import { Icon, LogoMark, type IconName } from './Icons';
 interface SideNavProps {
   active: NavKey;
   status: AppStatus;
+  observedEventCount: number;
   onNavigate: (key: NavKey) => void;
   updateState: UpdateState;
   onUpdate: () => void;
@@ -49,8 +50,15 @@ const statusLabelKeys: Record<AppStatus['state'], MessageKey> = {
   error: 'status.error',
 };
 
-export function SideNav({ active, status, onNavigate, updateState, onUpdate }: SideNavProps) {
-  const { t } = useI18n();
+export function SideNav({
+  active,
+  status,
+  observedEventCount,
+  onNavigate,
+  updateState,
+  onUpdate,
+}: SideNavProps) {
+  const { locale, t } = useI18n();
   const isConnected = status.state === 'connected';
   const isBusy = ['checking', 'downloading', 'installing'].includes(updateState.status);
   const updateLabel = t(updateLabelKey(updateState));
@@ -62,12 +70,25 @@ export function SideNav({ active, status, onNavigate, updateState, onUpdate }: S
     : updateState.status === 'failed'
       ? updateState.message
       : updateLabel;
-  const statusDetail =
+  const mode =
     status.integrationMode === 'gui'
       ? t('status.desktopMode')
       : status.integrationMode === 'cli'
         ? t('status.cliMode')
         : t('status.localMode');
+  const statusDetail =
+    status.state === 'error'
+      ? t('status.unableToRead', { mode })
+      : status.state === 'detecting' || status.state === 'recalibrating'
+        ? t('status.updatingDetail', { mode })
+        : status.state === 'connected' && observedEventCount > 0
+          ? t(observedEventCount === 1 ? 'status.observedEvent' : 'status.observedEvents', {
+              mode,
+              count: observedEventCount.toLocaleString(locale),
+            })
+          : status.state === 'settling' || status.state === 'connected'
+            ? t('status.waitingForUsage', { mode })
+            : mode;
   return (
     <aside className="side-nav">
       <div className="brand" aria-label="NerfTrack">

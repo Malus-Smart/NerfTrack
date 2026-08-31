@@ -59,6 +59,31 @@ const messages = {
   'status.cliMode': ['CLI Mode', 'CLI 模式', 'CLI 模式'],
   'status.desktopMode': ['Desktop Mode', '桌面模式', '桌面模式'],
   'status.localMode': ['Local Mode', '本地模式', '本機模式'],
+  'status.waitingForUsage': [
+    '{mode} · waiting for usage',
+    '{mode} · 正在等待用量',
+    '{mode} · 正在等待用量',
+  ],
+  'status.updatingDetail': [
+    '{mode} · updating local data',
+    '{mode} · 正在更新本地数据',
+    '{mode} · 正在更新本機資料',
+  ],
+  'status.unableToRead': [
+    '{mode} · unable to read local data',
+    '{mode} · 无法读取本地数据',
+    '{mode} · 無法讀取本機資料',
+  ],
+  'status.observedEvent': [
+    '{mode} · 1 usage event observed',
+    '{mode} · 已观测 1 个用量事件',
+    '{mode} · 已觀測 1 個用量事件',
+  ],
+  'status.observedEvents': [
+    '{mode} · {count} usage events observed',
+    '{mode} · 已观测 {count} 个用量事件',
+    '{mode} · 已觀測 {count} 個用量事件',
+  ],
   'setup.description.desktop': [
     'Connect local Codex desktop data to estimate weekly API-equivalent value from tokens.',
     '连接本地 Codex 桌面数据，根据令牌用量估算每周 API 等值。',
@@ -69,7 +94,7 @@ const messages = {
     '连接桌面应用或 CLI 的本地 Codex 数据，根据令牌用量估算每周 API 等值。',
     '連接桌面應用程式或 CLI 的本機 Codex 資料，根據權杖用量估算每週 API 等值。',
   ],
-  'setup.dataFolder': ['Codex data folder', 'Codex 数据文件夹', 'Codex 資料資料夾'],
+  'setup.dataFolder': ['Codex data folder', 'Codex 数据文件夹', 'Codex 資料夾'],
   'setup.chooseFolder': ['Choose folder', '选择文件夹', '選擇資料夾'],
   'setup.executable': ['Codex executable', 'Codex 可执行文件', 'Codex 執行檔'],
   'setup.chooseExecutable': ['Choose executable', '选择可执行文件', '選擇執行檔'],
@@ -333,6 +358,14 @@ const messages = {
   'history.status': ['Status', '状态', '狀態'],
   'history.weeklyWindow': ['weekly window', '每周窗口', '每週時段'],
   'history.finalized': ['Finalized', '已完成', '已完成'],
+  'reset.scheduled': ['Scheduled reset', '计划重置', '排程重設'],
+  'reset.reportedChanged': [
+    'Reported reset changed',
+    '报告的重置时间已变化',
+    '回報的重設時間已變更',
+  ],
+  'reset.changed': ['Reset changed', '重置已变化', '重設已變更'],
+  'reset.usageDecreased': ['Usage decreased', '用量下降', '用量下降'],
   'history.pendingTitle': [
     'Pending observations are omitted',
     '待定观测不会显示',
@@ -435,9 +468,9 @@ const messages = {
   'home.dataInterval': ['data {seconds}s', '数据 {seconds} 秒', '資料 {seconds} 秒'],
   'home.indexing': ['Indexing local data', '正在索引本地数据', '正在建立本機資料索引'],
   'home.indexingContinue': [
-    '{detail} You can keep using NerfTrack while this finishes.',
-    '{detail} 此过程完成前，你可以继续使用 NerfTrack。',
-    '{detail} 此程序完成前，你可以繼續使用 NerfTrack。',
+    'You can keep using NerfTrack while this finishes.',
+    '此过程完成前，你可以继续使用 NerfTrack。',
+    '此程序完成前，你可以繼續使用 NerfTrack。',
   ],
   'home.historyRange': ['History range', '历史范围', '歷史範圍'],
   'home.range.1D': ['Past Day', '过去一天', '過去一天'],
@@ -514,6 +547,10 @@ const messages = {
     '无活动，持续 {duration}',
     '無活動，持續 {duration}',
   ],
+  'chart.duration.minutes': ['{value}m', '{value} 分钟', '{value} 分鐘'],
+  'chart.duration.hours': ['{value}h', '{value} 小时', '{value} 小時'],
+  'chart.duration.days': ['{value}d', '{value} 天', '{value} 天'],
+  'chart.duration.months': ['{value}mo', '{value} 个月', '{value} 個月'],
   'chart.resetChanges': ['{count} reset changes', '{count} 次重置变化', '{count} 次重設變化'],
   'chart.observed': ['Observed', '已观测', '已觀測'],
   'common.loading': ['Loading local state…', '正在加载本地状态…', '正在載入本機狀態…'],
@@ -555,12 +592,25 @@ export function translate(
   return message;
 }
 
-export function formatDateTime(
-  locale: Locale,
-  timestamp: number,
-  options: Intl.DateTimeFormatOptions,
-) {
-  return new Intl.DateTimeFormat(locale, options).format(timestamp);
+export function formatResetReason(locale: Locale, reason: string) {
+  const normalized = reason
+    .trim()
+    .toLowerCase()
+    .replace(/^weekly window\s*·\s*/, '')
+    .replaceAll(' ', '_');
+  const key: MessageKey | null =
+    normalized === 'scheduled_reset'
+      ? 'reset.scheduled'
+      : normalized === 'reported_reset_changed'
+        ? 'reset.reportedChanged'
+        : normalized === 'reset_changed'
+          ? 'reset.changed'
+          : normalized === 'usage_decreased' || normalized === 'usage_drop'
+            ? 'reset.usageDecreased'
+            : null;
+  if (key) return translate(locale, key);
+  const fallback = normalized.replaceAll('_', ' ');
+  return fallback.charAt(0).toUpperCase() + fallback.slice(1);
 }
 
 interface I18nValue {

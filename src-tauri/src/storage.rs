@@ -4953,4 +4953,25 @@ mod tests {
         drop(database);
         let _ = fs::remove_file(path);
     }
+
+    #[test]
+    fn locale_preference_persists_with_app_settings() {
+        let (mut database, path) = database();
+        let settings = AppSettings {
+            advanced: crate::models::AdvancedSettings {
+                refresh_interval_seconds: 20,
+                ..Default::default()
+            },
+            locale: "zh-TW".into(),
+            ..Default::default()
+        };
+
+        database.save_settings(&settings).expect("save settings");
+        let restored = database.load_settings().expect("load settings");
+
+        assert_eq!(restored.locale, "zh-TW");
+        assert_eq!(restored.advanced.refresh_interval_seconds, 20);
+        drop(database);
+        let _ = fs::remove_file(path);
+    }
 }

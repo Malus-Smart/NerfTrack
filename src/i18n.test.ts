@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { detectLocale, formatDateTime, translate } from './i18n';
+import { detectLocale, formatResetReason, translate } from './i18n';
 
 describe('internationalization', () => {
   it('maps supported system languages to the matching interface locale', () => {
@@ -18,14 +18,9 @@ describe('internationalization', () => {
     expect(translate('zh-TW', 'common.version', { version: '1.1.4' })).toBe('版本 1.1.4');
   });
 
-  it('formats dates with the selected interface locale', () => {
-    const timestamp = Date.UTC(2026, 7, 31, 10, 30);
-    expect(
-      formatDateTime('zh-CN', timestamp, {
-        timeZone: 'UTC',
-        month: 'short',
-        day: 'numeric',
-      }),
-    ).toContain('8月31日');
+  it('translates routine reset reasons and preserves an English fallback', () => {
+    expect(formatResetReason('zh-CN', 'scheduled_reset')).toBe('计划重置');
+    expect(formatResetReason('zh-TW', 'Weekly window · reset changed')).toBe('重設已變更');
+    expect(formatResetReason('zh-CN', 'unknown_reset_reason')).toBe('Unknown reset reason');
   });
 });

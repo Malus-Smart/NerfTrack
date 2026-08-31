@@ -136,6 +136,10 @@ export function yAxisValueToY(
   return plotBottom - ((clampedValue - scale.lowerBound) / valueRange) * (plotBottom - plotTop);
 }
 
-export function formatYAxisTick(value: number) {
-  return `$${value}`;
+export function formatYAxisTick(value: number, locale: string) {
+  return new Intl.NumberFormat(locale, {
+    style: 'currency',
+    currency: 'USD',
+    maximumFractionDigits: 0,
+  }).format(value);
 }

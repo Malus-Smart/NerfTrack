@@ -73,9 +73,12 @@ export function SettingsView({
     'idle' | 'resetting' | 'restoring-checkpoint' | 'importing-all'
   >('idle');
   const [confirmReset, setConfirmReset] = useState(false);
-  const [dataMessage, setDataMessage] = useState<string | null>(null);
+  const [dataMessage, setDataMessage] = useState<{
+    key: MessageKey;
+    values?: Record<string, string | number>;
+  } | null>(null);
   const [pricingDraft, setPricingDraft] = useState<CustomPriceOverride[]>(settings.customPricing);
-  const [pricingError, setPricingError] = useState<string | null>(null);
+  const [pricingError, setPricingError] = useState<MessageKey | null>(null);
   const [pricingSaving, setPricingSaving] = useState(false);
   const draftModelIds = new Set(pricingDraft.map((price) => price.modelId.trim().toLowerCase()));
   const availableDetectedModelIds = detectedModelIds.filter(
@@ -95,13 +98,13 @@ export function SettingsView({
 
   const savePricing = async () => {
     for (const price of pricingDraft) {
-      if (!price.modelId.trim()) return setPricingError(t('settings.modelRequired'));
+      if (!price.modelId.trim()) return setPricingError('settings.modelRequired');
       if (
         [price.inputUsdPerMillion, price.cachedInputUsdPerMillion, price.outputUsdPerMillion].some(
           (value) => !Number.isFinite(value) || value < 0,
         )
       ) {
-        return setPricingError(t('settings.invalidPrices'));
+        return setPricingError('settings.invalidPrices');
       }
     }
     setPricingSaving(true);
@@ -109,7 +112,7 @@ export function SettingsView({
     try {
       await onCustomPricingChange(pricingDraft);
     } catch {
-      setPricingError(t('settings.savePricingFailed'));
+      setPricingError('settings.savePricingFailed');
     } finally {
       setPricingSaving(false);
     }
@@ -125,18 +128,18 @@ export function SettingsView({
       else await onImportAllData();
       setDataMessage(
         action === 'resetting'
-          ? t('settings.resetSuccess')
+          ? { key: 'settings.resetSuccess' }
           : action === 'restoring-checkpoint'
-            ? t('settings.restoreSuccess')
-            : t('settings.importSuccess'),
+            ? { key: 'settings.restoreSuccess' }
+            : { key: 'settings.importSuccess' },
       );
     } catch (error) {
       setDataMessage(
         action === 'resetting'
-          ? t('settings.resetFailed', { error: String(error) })
+          ? { key: 'settings.resetFailed', values: { error: String(error) } }
           : action === 'restoring-checkpoint'
-            ? t('settings.restoreFailed', { error: String(error) })
-            : t('settings.importFailed', { error: String(error) }),
+            ? { key: 'settings.restoreFailed', values: { error: String(error) } }
+            : { key: 'settings.importFailed', values: { error: String(error) } },
       );
     } finally {
       setDataAction('idle');
@@ -187,6 +190,7 @@ export function SettingsView({
                   className={`toggle ${settings[row.key] ? 'on' : ''}`}
                   role="switch"
                   aria-checked={Boolean(settings[row.key])}
+                  aria-label={t(row.labelKey)}
                   onClick={() => onChange(row.key, !settings[row.key])}
                 >
                   <span />
@@ -352,7 +356,7 @@ export function SettingsView({
         </div>
         {pricingError && (
           <p className="settings-error" role="alert">
-            {pricingError}
+            {t(pricingError)}
           </p>
         )}
         <div className="custom-price-actions">
@@ -465,7 +469,7 @@ export function SettingsView({
         )}
         {dataMessage && (
           <p className="data-action-message" role="status">
-            {dataMessage}
+            {t(dataMessage.key, dataMessage.values)}
           </p>
         )}
       </section>

@@ -200,14 +200,14 @@ function LiveRefreshStatus() {
   );
 }
 
-function LocalIndexingBanner({ detail }: { detail: string }) {
+function LocalIndexingBanner() {
   const { t } = useI18n();
   return (
     <div className="indexing-banner" role="status" aria-live="polite">
       <span className="indexing-spinner" aria-hidden="true" />
       <span>
         <strong>{t('home.indexing')}</strong>
-        <small>{t('home.indexingContinue', { detail })}</small>
+        <small>{t('home.indexingContinue')}</small>
       </span>
     </div>
   );
@@ -928,12 +928,13 @@ export default function App() {
         <SideNav
           active={active}
           status={status}
+          observedEventCount={diagnostics?.totalEvents ?? 0}
           onNavigate={setActive}
           updateState={updateState}
           onUpdate={() => void handleUpdate()}
         />
         <main className="app-content">
-          {status.state === 'recalibrating' && <LocalIndexingBanner detail={status.detail} />}
+          {status.state === 'recalibrating' && <LocalIndexingBanner />}
           {loadError && (
             <div className="global-error" role="alert">
               {translate(locale, 'common.localError')}
