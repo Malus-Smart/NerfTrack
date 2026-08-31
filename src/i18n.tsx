@@ -322,6 +322,32 @@ const messages = {
   'diagnostics.rejected': ['Rejected observations', '已拒绝观测', '已拒絕觀測'],
   'diagnostics.partialRetries': ['Partial-line retries', '不完整行重试', '不完整行重試'],
   'diagnostics.monitoringGaps': ['Monitoring gaps', '监控中断', '監控中斷'],
+  'diagnostics.reason.partialFinalLine': [
+    'Incomplete final line',
+    '最后一行不完整',
+    '最後一行不完整',
+  ],
+  'diagnostics.reason.monitoringGap': ['Monitoring gap', '监控中断', '監控中斷'],
+  'diagnostics.reason.reportedResetChanged': [
+    'Reported reset changed',
+    '报告的重置时间已变化',
+    '回報的重設時間已變更',
+  ],
+  'diagnostics.reason.waitingPositivePairs': [
+    'Waiting for positive paired deltas',
+    '正在等待成对的正增量',
+    '正在等待成對的正增量',
+  ],
+  'diagnostics.reason.unknownPrice': [
+    'Unknown API price for model',
+    '模型缺少 API 价格',
+    '模型缺少 API 價格',
+  ],
+  'diagnostics.reason.unknownPriceForModel': [
+    'No API price for {model}; add a local custom price override.',
+    '模型 {model} 缺少 API 价格；请添加本地自定义价格。',
+    '模型 {model} 缺少 API 價格；請新增本機自訂價格。',
+  ],
   'diagnostics.modelsObserved': ['Models observed', '已观测模型', '已觀測模型'],
   'diagnostics.eligibleEvidence': ['eligible evidence', '有效证据', '有效證據'],
   'diagnostics.dataPrivacy': [
@@ -359,6 +385,7 @@ const messages = {
   'history.weeklyWindow': ['weekly window', '每周窗口', '每週時段'],
   'history.finalized': ['Finalized', '已完成', '已完成'],
   'reset.scheduled': ['Scheduled reset', '计划重置', '排程重設'],
+  'reset.uncertain': ['Uncertain reset', '重置状态不确定', '重設狀態不確定'],
   'reset.reportedChanged': [
     'Reported reset changed',
     '报告的重置时间已变化',
@@ -443,6 +470,7 @@ const messages = {
     '{count} 个有效观测',
     '{count} 個有效觀測',
   ],
+  'home.validObservation': ['1 valid observation', '1 个有效观测', '1 個有效觀測'],
   'home.needPairedDeltas': ['Need paired deltas', '需要配对增量', '需要配對增量'],
   'home.notAvailable': ['Not available', '暂无数据', '暫無資料'],
   'home.unknownCoverage': ['unknown coverage', '覆盖率未知', '涵蓋率未知'],
@@ -457,9 +485,9 @@ const messages = {
     '正在等待每週用量正變化與本機權杖成本配對。',
   ],
   'home.earlyProjection': [
-    'Early projection {value} from {count} valid observations and {coverage}. Waiting for more movement before calling it stable.',
-    '初步预测为 {value}，来自 {count} 个有效观测，{coverage}。需要更多变化才能判定为稳定。',
-    '初步預測為 {value}，來自 {count} 個有效觀測，{coverage}。需要更多變化才能判定為穩定。',
+    'Early projection {value} from {observations} and {coverage}. Waiting for more movement before calling it stable.',
+    '初步预测为 {value}，来自 {observations}，{coverage}。需要更多变化才能判定为稳定。',
+    '初步預測為 {value}，來自 {observations}，{coverage}。需要更多變化才能判定為穩定。',
   ],
   'home.resetsIn': ['Resets In', '距离重置', '距離重設'],
   'home.resetObserved': ['Reset observed', '已观测到重置', '已觀測到重設'],
@@ -601,16 +629,42 @@ export function formatResetReason(locale: Locale, reason: string) {
   const key: MessageKey | null =
     normalized === 'scheduled_reset'
       ? 'reset.scheduled'
-      : normalized === 'reported_reset_changed'
-        ? 'reset.reportedChanged'
-        : normalized === 'reset_changed'
-          ? 'reset.changed'
-          : normalized === 'usage_decreased' || normalized === 'usage_drop'
-            ? 'reset.usageDecreased'
-            : null;
+      : normalized === 'uncertain_reset'
+        ? 'reset.uncertain'
+        : normalized === 'reported_reset_changed'
+          ? 'reset.reportedChanged'
+          : normalized === 'reset_changed'
+            ? 'reset.changed'
+            : normalized === 'usage_decreased' || normalized === 'usage_drop'
+              ? 'reset.usageDecreased'
+              : null;
   if (key) return translate(locale, key);
   const fallback = normalized.replaceAll('_', ' ');
   return fallback.charAt(0).toUpperCase() + fallback.slice(1);
+}
+
+export function formatDiagnosticReason(locale: Locale, reason: string) {
+  const normalized = reason.trim().toLowerCase();
+  const key: MessageKey | null =
+    normalized === 'partial final line'
+      ? 'diagnostics.reason.partialFinalLine'
+      : normalized === 'monitoring gap'
+        ? 'diagnostics.reason.monitoringGap'
+        : normalized === 'reported reset changed'
+          ? 'diagnostics.reason.reportedResetChanged'
+          : normalized === 'waiting for positive paired deltas'
+            ? 'diagnostics.reason.waitingPositivePairs'
+            : normalized === 'unknown api price for model'
+              ? 'diagnostics.reason.unknownPrice'
+              : null;
+  if (key) return translate(locale, key);
+
+  const unknownPrice = reason
+    .trim()
+    .match(/^unknown API price for model (.+); add a local custom price override$/i);
+  return unknownPrice
+    ? translate(locale, 'diagnostics.reason.unknownPriceForModel', { model: unknownPrice[1] })
+    : reason;
 }
 
 interface I18nValue {

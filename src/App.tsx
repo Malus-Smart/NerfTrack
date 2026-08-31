@@ -115,13 +115,19 @@ function formatCoverage(value: number | null | undefined, locale: Locale, t: Tra
   });
 }
 
+function formatObservationCount(count: number, locale: Locale, t: Translate) {
+  return t(count === 1 ? 'home.validObservation' : 'home.validObservations', {
+    count: count.toLocaleString(locale),
+  });
+}
+
 function calibrationNote(quote: CurrentQuote | null, locale: Locale, t: Translate) {
   if (!quote || quote.estimatedWeeklyValueUsd === null) {
     return t('home.waitingForPair');
   }
   return t('home.earlyProjection', {
     value: formatEstimatedUsd(quote.estimatedWeeklyValueUsd, locale, t),
-    count: quote.validObservationCount.toLocaleString(locale),
+    observations: formatObservationCount(quote.validObservationCount, locale, t),
     coverage: formatCoverage(quote.percentageCoverage, locale, t),
   });
 }
@@ -472,9 +478,7 @@ export function HomeView({
           }
           detail={
             quote?.validObservationCount
-              ? t('home.validObservations', {
-                  count: quote.validObservationCount.toLocaleString(locale),
-                })
+              ? formatObservationCount(quote.validObservationCount, locale, t)
               : t('home.needPairedDeltas')
           }
         />

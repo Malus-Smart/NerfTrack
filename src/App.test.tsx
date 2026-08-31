@@ -130,6 +130,9 @@ describe('NerfTrack app shell', () => {
     expect(screen.getByRole('heading', { name: '诊断' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: '质量原因' })).toBeInTheDocument();
     expect(screen.getByText('已观测事件')).toBeInTheDocument();
+    expect(screen.getByText('模型缺少 API 价格')).toBeInTheDocument();
+    expect(screen.getByText('报告的重置时间已变化')).toBeInTheDocument();
+    expect(screen.getByText('正在等待成对的正增量')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: '已观测模型' })).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: '历史记录' }));
     expect(screen.getByRole('heading', { name: '历史记录' })).toBeInTheDocument();
@@ -142,6 +145,35 @@ describe('NerfTrack app shell', () => {
     await user.click(screen.getByRole('button', { name: '再次打开引导页' }));
     expect(screen.getByRole('heading', { name: '帮助 NerfTrack 持续发展。' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '不加星标，继续' })).toBeInTheDocument();
+  });
+
+  it('uses singular English observation copy for one valid observation', () => {
+    render(
+      <HomeView
+        status={demoStatus}
+        quote={{ ...demoQuote, confidence: 'low', validObservationCount: 1 }}
+        history={customHistory([historyPoint()])}
+        annotations={[]}
+        range="1D"
+        reducedMotion={false}
+        isRefreshing={false}
+        onRefresh={vi.fn()}
+        onRangeChange={vi.fn()}
+        onResetAnnotations={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText('1 valid observation')).toBeInTheDocument();
+    expect(screen.getByText(/from 1 valid observation and/)).toBeInTheDocument();
+  });
+
+  it('follows the system language while the preference is system', async () => {
+    const languages = vi.spyOn(window.navigator, 'languages', 'get').mockReturnValue(['zh-TW']);
+
+    render(<App />);
+
+    expect(await screen.findByRole('button', { name: '首頁' })).toBeInTheDocument();
+    languages.mockRestore();
   });
 
   it('renders the main surfaces in traditional Chinese', async () => {

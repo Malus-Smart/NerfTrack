@@ -1,5 +1,5 @@
 import type { DiagnosticsSummary } from '../domain';
-import { useI18n } from '../i18n';
+import { formatDiagnosticReason, useI18n } from '../i18n';
 import { Icon } from './Icons';
 
 export function DiagnosticsView({ diagnostics }: { diagnostics: DiagnosticsSummary }) {
@@ -39,7 +39,7 @@ export function DiagnosticsView({ diagnostics }: { diagnostics: DiagnosticsSumma
           </div>
           {diagnostics.reasons.map((item) => (
             <div className="reason-row" key={item.reason}>
-              <span>{item.reason}</span>
+              <span>{formatDiagnosticReason(locale, item.reason)}</span>
               <strong>{item.count.toLocaleString(locale)}</strong>
             </div>
           ))}
