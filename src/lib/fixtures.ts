@@ -120,6 +120,7 @@ export const defaultAdvancedSettings: AdvancedSettings = {
 
 export const demoSettings: AppSettings = {
   ...defaultAdvancedSettings,
+  locale: 'en-US',
   appearance: 'dark',
   currency: 'USD',
   localOnly: true,

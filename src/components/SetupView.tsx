@@ -1,4 +1,5 @@
 import type { AppSettings, AppStatus } from '../domain';
+import { useI18n, type MessageKey } from '../i18n';
 import { Icon, type IconName } from './Icons';
 
 interface SetupViewProps {
@@ -7,42 +8,54 @@ interface SetupViewProps {
   onChooseHome: () => void;
   onChooseExecutable: () => void;
   onRetry: () => void;
-  onSettingChange: (key: keyof AppSettings, value: number | boolean) => void;
+  onSettingChange: (key: keyof AppSettings, value: number | boolean | string) => void;
 }
 
 const discoveryCards: Array<{
   key: 'codexHome' | 'codexExecutable' | 'appServer';
-  title: string;
+  titleKey: MessageKey;
   icon: IconName;
-  action?: string;
+  actionKey?: MessageKey;
 }> = [
-  { key: 'codexHome', title: 'Codex data folder', icon: 'folder', action: 'Choose folder' },
+  {
+    key: 'codexHome',
+    titleKey: 'setup.dataFolder',
+    icon: 'folder',
+    actionKey: 'setup.chooseFolder',
+  },
   {
     key: 'codexExecutable',
-    title: 'Codex executable',
+    titleKey: 'setup.executable',
     icon: 'terminal',
-    action: 'Choose executable',
+    actionKey: 'setup.chooseExecutable',
   },
-  { key: 'appServer', title: 'App Server (CLI only)', icon: 'server' },
+  { key: 'appServer', titleKey: 'setup.appServer', icon: 'server' },
 ];
 
 const settingsRows: Array<{
   key: keyof AppSettings;
   icon: IconName;
-  title: string;
-  description: string;
+  titleKey: MessageKey;
+  descriptionKey: MessageKey;
   options: number[];
-  suffix: string;
 }> = [
   {
     key: 'refreshIntervalSeconds',
     icon: 'clock',
-    title: 'Refresh interval',
-    description: 'How often NerfTrack checks for new Codex usage.',
+    titleKey: 'setup.refreshInterval',
+    descriptionKey: 'setup.refreshDescription',
     options: [10, 20, 30],
-    suffix: ' seconds',
   },
 ];
+
+const discoveryStateKeys: Record<AppStatus['codexHome']['state'], MessageKey> = {
+  auto_detected: 'discovery.auto_detected',
+  selected: 'discovery.selected',
+  missing: 'discovery.missing',
+  unsupported: 'discovery.unsupported',
+  redacted: 'discovery.redacted',
+  not_required: 'discovery.not_required',
+};
 
 export function SetupView({
   status,
@@ -52,25 +65,26 @@ export function SetupView({
   onRetry,
   onSettingChange,
 }: SetupViewProps) {
+  const { t } = useI18n();
   const guiMode = status.integrationMode === 'gui';
 
   return (
     <section className="setup-page page-shell">
       <header className="page-heading">
-        <h1>Set up NerfTrack</h1>
-        <p>
-          {guiMode
-            ? 'Connect local Codex desktop data to estimate weekly API-equivalent value from tokens.'
-            : 'Connect local Codex data from the desktop app or CLI to estimate weekly API-equivalent value from tokens.'}
-        </p>
+        <h1>{t('setup.title')}</h1>
+        <p>{t(guiMode ? 'setup.description.desktop' : 'setup.description.cli')}</p>
       </header>
       <div className="discovery-grid">
         {discoveryCards.map((card) => {
           const discovery = status[card.key];
           const title =
-            card.key === 'codexExecutable' && guiMode ? 'Codex CLI executable' : card.title;
+            card.key === 'codexExecutable' && guiMode ? t('setup.cliExecutable') : t(card.titleKey);
           const label =
-            card.key === 'codexExecutable' && guiMode ? 'Choose CLI executable' : card.action;
+            card.key === 'codexExecutable' && guiMode
+              ? t('setup.chooseCliExecutable')
+              : card.actionKey
+                ? t(card.actionKey)
+                : undefined;
           const action =
             card.key === 'codexHome'
               ? onChooseHome
@@ -83,8 +97,8 @@ export function SetupView({
           const discoveryPath =
             discovery.redactedLocation ??
             (discovery.state === 'not_required'
-              ? 'Not required in desktop mode'
-              : 'Not discovered yet');
+              ? t('setup.notRequired')
+              : t('setup.notDiscovered'));
           return (
             <article className="discovery-card" key={card.key}>
               <div className="discovery-title-row">
@@ -95,7 +109,7 @@ export function SetupView({
                   <h2>{title}</h2>
                   <p className={`discovery-state ${isAlert ? 'missing' : ''}`}>
                     <Icon name={isAlert ? 'alert' : 'check'} size={17} />
-                    {discovery.message}
+                    {t(discoveryStateKeys[discovery.state])}
                   </p>
                 </div>
               </div>
@@ -113,7 +127,7 @@ export function SetupView({
       <div className="panel monitoring-panel">
         <div className="panel-heading">
           <Icon name="settings" size={23} />
-          <h2>Monitoring settings</h2>
+          <h2>{t('setup.monitoringSettings')}</h2>
         </div>
         <div className="setting-rows">
           {settingsRows.map((row) => (
@@ -122,19 +136,18 @@ export function SetupView({
                 <Icon name={row.icon} size={25} />
               </div>
               <div className="setting-copy">
-                <strong>{row.title}</strong>
-                <span>{row.description}</span>
+                <strong>{t(row.titleKey)}</strong>
+                <span>{t(row.descriptionKey)}</span>
               </div>
               <label className="select-wrap">
-                <span className="sr-only">{row.title}</span>
+                <span className="sr-only">{t(row.titleKey)}</span>
                 <select
                   value={settings[row.key] as number}
                   onChange={(event) => onSettingChange(row.key, Number(event.target.value))}
                 >
                   {row.options.map((option) => (
                     <option key={option} value={option}>
-                      {option}
-                      {row.suffix}
+                      {t('setup.seconds', { value: option })}
                     </option>
                   ))}
                 </select>
@@ -149,22 +162,18 @@ export function SetupView({
           <Icon name="shield" size={36} strokeWidth={1.5} />
         </div>
         <div>
-          <h2>Local-only</h2>
-          <p>
-            All processing and data storage happen only on this machine.
-            <br />
-            No data leaves your device.
-          </p>
+          <h2>{t('setup.localOnly')}</h2>
+          <p>{t('setup.localDescription')}</p>
         </div>
         <span className="local-badge">
           <Icon name="lock" size={17} />
-          100% Local
+          {t('setup.localBadge')}
         </span>
       </div>
       <div className="setup-actions">
         <button className="secondary-button" onClick={onRetry}>
           <Icon name="refresh" size={21} />
-          Retry detection
+          {t('setup.retry')}
         </button>
       </div>
     </section>

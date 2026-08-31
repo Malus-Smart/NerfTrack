@@ -1,4 +1,5 @@
 import type { AppStatus, NavKey, UpdateState } from '../domain';
+import { useI18n, type MessageKey } from '../i18n';
 import { Icon, LogoMark, type IconName } from './Icons';
 
 interface SideNavProps {
@@ -9,48 +10,71 @@ interface SideNavProps {
   onUpdate: () => void;
 }
 
-const navItems: Array<{ key: NavKey; label: string; icon: IconName }> = [
-  { key: 'home', label: 'Home', icon: 'home' },
-  { key: 'setup', label: 'Setup', icon: 'settings' },
-  { key: 'diagnostics', label: 'Diagnostics', icon: 'activity' },
-  { key: 'history', label: 'History', icon: 'history' },
-  { key: 'settings', label: 'Settings', icon: 'settings' },
+const navItems: Array<{ key: NavKey; labelKey: MessageKey; icon: IconName }> = [
+  { key: 'home', labelKey: 'nav.home', icon: 'home' },
+  { key: 'setup', labelKey: 'nav.setup', icon: 'settings' },
+  { key: 'diagnostics', labelKey: 'nav.diagnostics', icon: 'activity' },
+  { key: 'history', labelKey: 'nav.history', icon: 'history' },
+  { key: 'settings', labelKey: 'nav.settings', icon: 'settings' },
 ];
 
-function updateLabel(updateState: UpdateState) {
+function updateLabelKey(updateState: UpdateState): MessageKey {
   switch (updateState.status) {
     case 'checking':
-      return 'Checking for updates';
+      return 'update.checking';
     case 'available':
-      return 'Update Available';
+      return 'update.available';
     case 'downloading':
-      return 'Downloading…';
+      return 'update.downloading';
     case 'installing':
-      return 'Installing…';
+      return 'update.installing';
     case 'up-to-date':
-      return 'Up to date';
+      return 'update.upToDate';
     case 'failed':
-      return 'Update failed';
+      return 'update.failed';
     case 'not-configured':
-      return 'Updates not configured';
+      return 'update.notConfigured';
     default:
-      return 'Check for updates';
+      return 'update.check';
   }
 }
 
+const statusLabelKeys: Record<AppStatus['state'], MessageKey> = {
+  connected: 'status.connected',
+  detecting: 'status.detecting',
+  settling: 'status.settling',
+  recalibrating: 'status.recalibrating',
+  unsupported: 'status.unsupported',
+  needs_setup: 'status.needs_setup',
+  error: 'status.error',
+};
+
 export function SideNav({ active, status, onNavigate, updateState, onUpdate }: SideNavProps) {
+  const { t } = useI18n();
   const isConnected = status.state === 'connected';
   const isBusy = ['checking', 'downloading', 'installing'].includes(updateState.status);
+  const updateLabel = t(updateLabelKey(updateState));
   const updateMessage = updateState.latestVersion
-    ? `Installed v${updateState.currentVersion} · latest v${updateState.latestVersion}`
-    : updateState.message;
+    ? t('update.installedVersions', {
+        current: updateState.currentVersion,
+        latest: updateState.latestVersion,
+      })
+    : updateState.status === 'failed'
+      ? updateState.message
+      : updateLabel;
+  const statusDetail =
+    status.integrationMode === 'gui'
+      ? t('status.desktopMode')
+      : status.integrationMode === 'cli'
+        ? t('status.cliMode')
+        : t('status.localMode');
   return (
     <aside className="side-nav">
       <div className="brand" aria-label="NerfTrack">
         <LogoMark size={28} />
         <span>NerfTrack</span>
       </div>
-      <nav aria-label="Primary">
+      <nav aria-label={t('nav.primary')}>
         {navItems.map((item) => (
           <button
             key={item.key}
@@ -59,7 +83,7 @@ export function SideNav({ active, status, onNavigate, updateState, onUpdate }: S
             aria-current={active === item.key ? 'page' : undefined}
           >
             <Icon name={item.icon} size={23} />
-            <span>{item.label}</span>
+            <span>{t(item.labelKey)}</span>
           </button>
         ))}
       </nav>
@@ -67,8 +91,8 @@ export function SideNav({ active, status, onNavigate, updateState, onUpdate }: S
         <button className="connection-card" onClick={() => onNavigate('setup')}>
           <span className={`status-dot ${isConnected ? 'good' : 'warn'}`} />
           <span className="connection-copy">
-            <strong>{status.label}</strong>
-            <span>{status.detail}</span>
+            <strong>{t(statusLabelKeys[status.state])}</strong>
+            <span>{statusDetail}</span>
           </span>
           <Icon name="chevron" size={17} />
         </button>
@@ -78,12 +102,12 @@ export function SideNav({ active, status, onNavigate, updateState, onUpdate }: S
             className={`update-button update-${updateState.status}`}
             disabled={isBusy}
             onClick={onUpdate}
-            aria-label={updateLabel(updateState)}
+            aria-label={updateLabel}
             title={updateMessage}
           >
             <span className="update-button-label">
               <Icon name="refresh" size={17} />
-              {updateLabel(updateState)}
+              {updateLabel}
             </span>
             {updateState.status === 'available' && updateState.latestVersion && (
               <span className="update-badge">v{updateState.latestVersion}</span>

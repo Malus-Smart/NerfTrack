@@ -128,6 +128,7 @@ export interface AdvancedSettings {
 }
 
 export interface AppSettings extends AdvancedSettings {
+  locale: 'system' | 'en-US' | 'zh-CN' | 'zh-TW';
   appearance: 'dark';
   currency: 'USD';
   localOnly: true;

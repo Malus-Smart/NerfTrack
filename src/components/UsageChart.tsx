@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Annotation, HistoryPoint, Range } from '../domain';
+import { useI18n, type Locale } from '../i18n';
 import { getChartEstimate, isComparisonEligiblePoint } from '../lib/comparison';
 import { formatYAxisTick, getChartYAxisScale, yAxisValueToY } from '../lib/chartScale';
 import { Icon } from './Icons';
@@ -55,12 +56,12 @@ interface AnnotationMarker {
   label: string;
 }
 
-function formatDate(timestamp: number, range: Range) {
+function formatDate(timestamp: number, range: Range, locale: Locale) {
   const date = new Date(timestamp);
   if (range === '1D') {
-    return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    return date.toLocaleTimeString(locale, { hour: 'numeric', minute: '2-digit' });
   }
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  return date.toLocaleDateString(locale, { month: 'short', day: 'numeric' });
 }
 
 function formatUsd(value: number | null) {
@@ -332,6 +333,7 @@ export function UsageChart({
   baselineEstimatedWeeklyValueUsd = null,
   onScrub,
 }: UsageChartProps) {
+  const { locale, t } = useI18n();
   const svgRef = useRef<SVGSVGElement>(null);
   const isDragging = useRef(false);
   const anchorRef = useRef<HistoryPoint | null>(null);
@@ -437,7 +439,7 @@ export function UsageChart({
         count: 1,
         label: `${annotationLabel(annotation.label)} · ${new Date(
           annotation.timestamp,
-        ).toLocaleString('en-US', {
+        ).toLocaleString(locale, {
           month: 'short',
           day: 'numeric',
           hour: 'numeric',
@@ -451,14 +453,14 @@ export function UsageChart({
         const count = previous.count + 1;
         previous.x = (previous.x * previous.count + marker.x) / count;
         previous.count = count;
-        previous.label = `${count} reset changes`;
+        previous.label = t('chart.resetChanges', { count });
         previous.id = `${previous.id}-${marker.id}`;
       } else {
         groups.push({ ...marker });
       }
       return groups;
     }, []);
-  }, [annotations, rangeEnd, rangeStart, timeline]);
+  }, [annotations, locale, rangeEnd, rangeStart, t, timeline]);
   const selected = selection?.point ?? null;
   const selectedCoordinate = selection?.coordinate ?? null;
   const anchorCoordinate = useMemo(() => {
@@ -584,8 +586,8 @@ export function UsageChart({
       style={{ '--chart-color': chartColor } as React.CSSProperties}
     >
       <div className="chart-value-label">
-        <span>Estimated weekly API-equivalent value</span>
-        <small>USD · local token-derived estimate</small>
+        <span>{t('chart.title')}</span>
+        <small>{t('chart.subtitle')}</small>
       </div>
       <div className="chart-canvas-wrap">
         {noUsageHover && (
@@ -598,7 +600,7 @@ export function UsageChart({
               } as React.CSSProperties
             }
           >
-            No activity · {formatGapDuration(noUsageHover.durationMs)}
+            {t('chart.noUsage', { duration: formatGapDuration(noUsageHover.durationMs) })}
           </div>
         )}
         {annotationHover && (
@@ -625,18 +627,20 @@ export function UsageChart({
             }
           >
             <Icon name="calendar" size={14} />
-            <span>{formatDate(selected.timestamp, range)}</span>
+            <span>{formatDate(selected.timestamp, range, locale)}</span>
             <strong>{formatUsd(historySignal(selected))}</strong>
-            <small>Observed: {formatUsd(selected.observedCostUsd)}</small>
+            <small>
+              {t('chart.observed')}: {formatUsd(selected.observedCostUsd)}
+            </small>
           </div>
         )}
-        {!points.length && <div className="chart-empty">Waiting for weekly observations</div>}
+        {!points.length && <div className="chart-empty">{t('chart.waiting')}</div>}
         <svg
           ref={svgRef}
           className={`chart-canvas ${isDragging.current ? 'is-scrubbing' : ''}`}
           viewBox={`0 0 ${chartWidth} ${chartHeight}`}
           role="img"
-          aria-label="Estimated weekly API-equivalent value history chart. Use arrow keys to move between points."
+          aria-label={t('chart.aria')}
           aria-grabbed={isDragging.current}
           tabIndex={0}
           onPointerDown={(event) => {
@@ -749,14 +753,18 @@ export function UsageChart({
                 key={`gap-${gap.startTimestamp}`}
                 className="chart-inactivity-gap"
                 role="img"
-                aria-label={`No activity for ${formatGapDuration(durationMs)}`}
+                aria-label={t('chart.noActivityFor', {
+                  duration: formatGapDuration(durationMs),
+                })}
                 tabIndex={0}
                 onPointerEnter={() => setNoUsageHover({ x: centerX, durationMs })}
                 onPointerLeave={() => setNoUsageHover(null)}
                 onFocus={() => setNoUsageHover({ x: centerX, durationMs })}
                 onBlur={() => setNoUsageHover(null)}
               >
-                <title>No activity for {formatGapDuration(durationMs)}</title>
+                <title>
+                  {t('chart.noActivityFor', { duration: formatGapDuration(durationMs) })}
+                </title>
                 <rect
                   x={gap.startX}
                   y={plotTop}
@@ -862,7 +870,7 @@ export function UsageChart({
                   index === 0 ? 'start' : index === labelRatios.length - 1 ? 'end' : 'middle'
                 }
               >
-                {formatDate(timestamp, range)}
+                {formatDate(timestamp, range, locale)}
               </text>
             );
           })}

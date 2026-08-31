@@ -98,6 +98,63 @@ describe('NerfTrack app shell', () => {
     expect(refreshSelect).toHaveValue('20');
   });
 
+  it('switches the interface language from settings', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(await screen.findByRole('button', { name: 'Settings' }));
+    await user.selectOptions(screen.getByLabelText('Language'), 'zh-CN');
+
+    expect(screen.getByRole('heading', { name: '设置' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '首页' })).toBeInTheDocument();
+    expect(screen.getByLabelText('语言')).toHaveValue('zh-CN');
+    expect(screen.getByRole('heading', { name: '高级监控' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '自定义 API 价格' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '隐私优先' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '添加覆盖价格' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '重置所有数据' })).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: '首页' }));
+    expect(screen.getByRole('heading', { name: 'Codex 每周 API 等值估算' })).toBeInTheDocument();
+    expect(screen.getByText('本周已使用')).toBeInTheDocument();
+    expect(screen.getByText('稳定的每周 API 等值')).toBeInTheDocument();
+    expect(screen.getByText('已观测令牌成本')).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: /每周 API 等值估算历史图表/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '分享图表' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: '设置向导' }));
+    expect(screen.getByRole('heading', { name: '设置 NerfTrack' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '重试检测' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '仅限本地' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: '诊断' }));
+    expect(screen.getByRole('heading', { name: '诊断' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '质量原因' })).toBeInTheDocument();
+    expect(screen.getByText('已观测事件')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '已观测模型' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: '历史记录' }));
+    expect(screen.getByRole('heading', { name: '历史记录' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '最近观测' })).toBeInTheDocument();
+    expect(screen.getByText('当前')).toBeInTheDocument();
+    expect(screen.getByText('日期')).toBeInTheDocument();
+    expect(screen.getByText('状态')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: '设置' }));
+    await user.click(screen.getByRole('button', { name: '再次打开引导页' }));
+    expect(screen.getByRole('heading', { name: '帮助 NerfTrack 持续发展。' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '不加星标，继续' })).toBeInTheDocument();
+  });
+
+  it('renders the main surfaces in traditional Chinese', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(await screen.findByRole('button', { name: 'Settings' }));
+    await user.selectOptions(screen.getByLabelText('Language'), 'zh-TW');
+    await user.click(screen.getByRole('button', { name: '首頁' }));
+
+    expect(screen.getByRole('heading', { name: 'Codex 每週 API 等值估算' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '重新整理資料' })).toBeInTheDocument();
+  });
+
   it('shows an in-app confirmation before resetting local data', async () => {
     const user = userEvent.setup();
     render(<App />);

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import starterPortrait from '../assets/starter-portrait.png';
+import { useI18n } from '../i18n';
 import { GITHUB_REPOSITORY_URL } from '../lib/config';
 import { openExternalUrl } from '../lib/updater';
 import { Icon, LogoMark } from './Icons';
@@ -10,6 +11,7 @@ interface StarterPageProps {
 }
 
 export function StarterPage({ version, onComplete }: StarterPageProps) {
+  const { locale, t } = useI18n();
   const [githubOpened, setGithubOpened] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -17,7 +19,7 @@ export function StarterPage({ version, onComplete }: StarterPageProps) {
   const openGithub = async () => {
     setError(null);
     if (!GITHUB_REPOSITORY_URL) {
-      setError('The NerfTrack GitHub repository URL has not been configured yet.');
+      setError(t('starter.repositoryNotConfigured'));
       return;
     }
     setBusy(true);
@@ -44,7 +46,7 @@ export function StarterPage({ version, onComplete }: StarterPageProps) {
   };
 
   return (
-    <main className="starter-page" aria-labelledby="starter-heading">
+    <main className="starter-page" aria-labelledby="starter-heading" lang={locale}>
       <header className="starter-top">
         <div className="starter-brand">
           <LogoMark size={28} />
@@ -55,12 +57,9 @@ export function StarterPage({ version, onComplete }: StarterPageProps) {
 
       <section className="starter-content">
         <div className="starter-copy">
-          <span className="starter-kicker">BEFORE YOU BEGIN · 01</span>
-          <h1 id="starter-heading">Help NerfTrack keep going.</h1>
-          <p>
-            NerfTrack is built in the open. If it helps you understand your weekly usage, star the
-            repository on GitHub so the project can keep growing.
-          </p>
+          <span className="starter-kicker">{t('starter.kicker')}</span>
+          <h1 id="starter-heading">{t('starter.title')}</h1>
+          <p>{t('starter.description')}</p>
 
           <div className="starter-actions">
             <button
@@ -73,20 +72,22 @@ export function StarterPage({ version, onComplete }: StarterPageProps) {
                 <Icon name="github" size={19} strokeWidth={1.5} />
               </span>
               <span>
-                <strong>{githubOpened ? 'GitHub opened' : 'Star NerfTrack on GitHub'}</strong>
+                <strong>
+                  {githubOpened ? t('starter.githubOpened') : t('starter.starGithub')}
+                </strong>
                 <small>
                   {GITHUB_REPOSITORY_URL
                     ? githubOpened
-                      ? 'Thanks for supporting the project.'
-                      : 'Open the repository and leave a star.'
-                    : 'The repository link will appear here once configured.'}
+                      ? t('starter.thanks')
+                      : t('starter.openRepository')
+                    : t('starter.linkUnavailable')}
                 </small>
               </span>
               <Icon name={githubOpened ? 'check' : 'external'} size={17} />
             </button>
             {githubOpened && (
               <p className="starter-confirmation" role="status">
-                <Icon name="check" size={16} /> Ready when you are.
+                <Icon name="check" size={16} /> {t('starter.ready')}
               </p>
             )}
             {error && (
@@ -101,8 +102,8 @@ export function StarterPage({ version, onComplete }: StarterPageProps) {
               ☹
             </span>
             <span className="starter-skip-copy">
-              <strong>Not ready to star?</strong>
-              <small>The little star will be sad, but you can still continue.</small>
+              <strong>{t('starter.notReady')}</strong>
+              <small>{t('starter.sadStar')}</small>
             </span>
             <button
               type="button"
@@ -110,7 +111,7 @@ export function StarterPage({ version, onComplete }: StarterPageProps) {
               disabled={busy}
               onClick={() => void continueToApp()}
             >
-              Continue without starring
+              {t('starter.continueWithout')}
             </button>
           </div>
         </div>
@@ -125,8 +126,8 @@ export function StarterPage({ version, onComplete }: StarterPageProps) {
       <footer className="starter-footer">
         <div className="starter-tagline-wrap">
           <span className="starter-tagline-accent" />
-          <strong>Let the resets continue</strong>
-          <span className="starter-tagline-caption">Keep a clear eye on the week ahead.</span>
+          <strong>{t('starter.tagline')}</strong>
+          <span className="starter-tagline-caption">{t('starter.caption')}</span>
         </div>
         <button
           type="button"
@@ -134,7 +135,7 @@ export function StarterPage({ version, onComplete }: StarterPageProps) {
           disabled={!githubOpened || busy}
           onClick={() => void continueToApp()}
         >
-          {busy ? 'Saving…' : 'Continue to NerfTrack'}
+          {busy ? t('starter.saving') : t('starter.continue')}
           <Icon name="chevron-right" size={17} />
         </button>
       </footer>

@@ -300,6 +300,7 @@ impl AdvancedSettings {
 pub struct AppSettings {
     #[serde(flatten)]
     pub advanced: AdvancedSettings,
+    pub locale: String,
     pub appearance: String,
     pub currency: String,
     pub local_only: bool,
@@ -346,6 +347,7 @@ impl Default for AppSettings {
     fn default() -> Self {
         Self {
             advanced: AdvancedSettings::default(),
+            locale: "system".into(),
             appearance: "dark".into(),
             currency: "USD".into(),
             local_only: true,
@@ -388,6 +390,11 @@ mod tests {
     use super::AppSettings;
 
     #[test]
+    fn settings_default_to_system_locale() {
+        assert_eq!(AppSettings::default().locale, "system");
+    }
+
+    #[test]
     fn settings_from_before_the_starter_page_defaults_to_unseen() {
         let settings: AppSettings = serde_json::from_str(
             r#"{
@@ -395,6 +402,7 @@ mod tests {
                 "reconciliationIntervalHours": 1,
                 "monitoringGapMinutes": 5,
                 "reducedMotion": false,
+                "locale": "system",
                 "appearance": "dark",
                 "currency": "USD",
                 "localOnly": true,
