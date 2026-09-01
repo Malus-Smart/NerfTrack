@@ -80,6 +80,7 @@ describe('NerfTrack app shell', () => {
     expect(screen.getByText('Weekly Used')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Refresh data' })).toBeInTheDocument();
     expect(screen.getByText(/Live ·/)).toBeInTheDocument();
+    expect(await screen.findByText('CLI Mode · 846 usage events observed')).toBeInTheDocument();
   });
 
   it('switches to setup and changes a monitoring control', async () => {
@@ -96,6 +97,129 @@ describe('NerfTrack app shell', () => {
     const refreshSelect = screen.getByLabelText('Refresh interval');
     await user.selectOptions(refreshSelect, '20');
     expect(refreshSelect).toHaveValue('20');
+  });
+
+  it('switches the interface language from settings', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(await screen.findByRole('button', { name: 'Settings' }));
+    await user.selectOptions(screen.getByLabelText('Language'), 'zh-CN');
+
+    expect(screen.getByRole('heading', { name: '设置' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '首页' })).toBeInTheDocument();
+    expect(screen.getByLabelText('语言')).toHaveValue('zh-CN');
+    expect(screen.getByRole('heading', { name: '高级监控' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '自定义 API 价格' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '隐私优先' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '添加覆盖价格' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '重置所有数据' })).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: '首页' }));
+    expect(screen.getByRole('heading', { name: 'Codex 每周 API 等值估算' })).toBeInTheDocument();
+    expect(screen.getByText('本周已使用')).toBeInTheDocument();
+    expect(screen.getByText('稳定的每周 API 等值')).toBeInTheDocument();
+    expect(screen.getByText('已观测令牌成本')).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: /每周 API 等值估算历史图表/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '分享图表' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: '设置向导' }));
+    expect(screen.getByRole('heading', { name: '设置 NerfTrack' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '重试检测' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '仅限本地' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: '诊断' }));
+    expect(screen.getByRole('heading', { name: '诊断' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '质量原因' })).toBeInTheDocument();
+    expect(screen.getByText('已观测事件')).toBeInTheDocument();
+    expect(screen.getByText('模型缺少 API 价格')).toBeInTheDocument();
+    expect(screen.getByText('报告的重置时间已变化')).toBeInTheDocument();
+    expect(screen.getByText('正在等待成对的正增量')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '已观测模型' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: '历史记录' }));
+    expect(screen.getByRole('heading', { name: '历史记录' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '最近观测' })).toBeInTheDocument();
+    expect(screen.getByText('当前')).toBeInTheDocument();
+    expect(screen.getByText('日期')).toBeInTheDocument();
+    expect(screen.getByText('状态')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: '设置' }));
+    await user.click(screen.getByRole('button', { name: '再次打开引导页' }));
+    expect(screen.getByRole('heading', { name: '帮助 NerfTrack 持续发展。' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '不加星标，继续' })).toBeInTheDocument();
+  });
+
+  it('uses singular English observation copy for one valid observation', () => {
+    render(
+      <HomeView
+        status={demoStatus}
+        quote={{ ...demoQuote, confidence: 'low', validObservationCount: 1 }}
+        history={customHistory([historyPoint()])}
+        annotations={[]}
+        range="1D"
+        reducedMotion={false}
+        isRefreshing={false}
+        onRefresh={vi.fn()}
+        onRangeChange={vi.fn()}
+        onResetAnnotations={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText('1 valid observation')).toBeInTheDocument();
+    expect(screen.getByText(/from 1 valid observation and/)).toBeInTheDocument();
+  });
+
+  it('follows the system language while the preference is system', async () => {
+    const languages = vi.spyOn(window.navigator, 'languages', 'get').mockReturnValue(['zh-TW']);
+
+    render(<App />);
+
+    expect(await screen.findByRole('button', { name: '首頁' })).toBeInTheDocument();
+    languages.mockRestore();
+  });
+
+  it('renders the main surfaces in traditional Chinese', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(await screen.findByRole('button', { name: 'Settings' }));
+    await user.selectOptions(screen.getByLabelText('Language'), 'zh-TW');
+    await user.click(screen.getByRole('button', { name: '首頁' }));
+
+    expect(screen.getByRole('heading', { name: 'Codex 每週 API 等值估算' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '重新整理資料' })).toBeInTheDocument();
+  });
+
+  it('localizes routine reset reasons in history', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(await screen.findByRole('button', { name: 'Settings' }));
+    await user.selectOptions(screen.getByLabelText('Language'), 'zh-CN');
+    await user.click(screen.getByRole('button', { name: '历史记录' }));
+
+    expect(screen.getAllByText('计划重置').length).toBeGreaterThan(0);
+  });
+
+  it('gives the reduced-motion switch a localized accessible name', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(await screen.findByRole('button', { name: 'Settings' }));
+    await user.selectOptions(screen.getByLabelText('Language'), 'zh-CN');
+
+    expect(screen.getByRole('switch', { name: '减少动态效果' })).toBeInTheDocument();
+  });
+
+  it('retranslates a visible settings validation message after switching language', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(await screen.findByRole('button', { name: 'Settings' }));
+    await user.click(screen.getByRole('button', { name: 'Add override' }));
+    await user.click(screen.getByRole('button', { name: 'Save pricing' }));
+    expect(screen.getByRole('alert')).toHaveTextContent('Each override needs a model ID.');
+
+    await user.selectOptions(screen.getByLabelText('Language'), 'zh-CN');
+    expect(screen.getByRole('alert')).toHaveTextContent('每条覆盖价格都需要模型 ID。');
   });
 
   it('shows an in-app confirmation before resetting local data', async () => {

@@ -1,20 +1,26 @@
 import type { DiagnosticsSummary } from '../domain';
+import { formatDiagnosticReason, useI18n } from '../i18n';
 import { Icon } from './Icons';
 
 export function DiagnosticsView({ diagnostics }: { diagnostics: DiagnosticsSummary }) {
+  const { locale, t } = useI18n();
   const rows = [
-    ['Events observed', diagnostics.totalEvents.toLocaleString(), 'activity'],
-    ['Priced token events', diagnostics.pricedEvents.toLocaleString(), 'check'],
-    ['Pricing pending', diagnostics.pendingEvents.toLocaleString(), 'clock'],
-    ['Rejected observations', diagnostics.rejectedEvents.toLocaleString(), 'alert'],
-    ['Partial-line retries', diagnostics.partialLineRetries.toLocaleString(), 'refresh'],
-    ['Monitoring gaps', diagnostics.monitoringGaps.toLocaleString(), 'history'],
+    [t('diagnostics.eventsObserved'), diagnostics.totalEvents.toLocaleString(locale), 'activity'],
+    [t('diagnostics.pricedEvents'), diagnostics.pricedEvents.toLocaleString(locale), 'check'],
+    [t('diagnostics.pricingPending'), diagnostics.pendingEvents.toLocaleString(locale), 'clock'],
+    [t('diagnostics.rejected'), diagnostics.rejectedEvents.toLocaleString(locale), 'alert'],
+    [
+      t('diagnostics.partialRetries'),
+      diagnostics.partialLineRetries.toLocaleString(locale),
+      'refresh',
+    ],
+    [t('diagnostics.monitoringGaps'), diagnostics.monitoringGaps.toLocaleString(locale), 'history'],
   ] as const;
   return (
     <section className="page-shell diagnostics-page">
       <header className="page-heading">
-        <h1>Diagnostics</h1>
-        <p>Aggregate health signals for local collection and estimation.</p>
+        <h1>{t('diagnostics.title')}</h1>
+        <p>{t('diagnostics.description')}</p>
       </header>
       <div className="diagnostics-summary-grid">
         {rows.map(([label, value, icon]) => (
@@ -29,43 +35,38 @@ export function DiagnosticsView({ diagnostics }: { diagnostics: DiagnosticsSumma
         <div className="panel diagnostics-list">
           <div className="panel-heading">
             <Icon name="alert" size={23} />
-            <h2>Quality reasons</h2>
+            <h2>{t('diagnostics.qualityReasons')}</h2>
           </div>
           {diagnostics.reasons.map((item) => (
             <div className="reason-row" key={item.reason}>
-              <span>{item.reason}</span>
-              <strong>{item.count}</strong>
+              <span>{formatDiagnosticReason(locale, item.reason)}</span>
+              <strong>{item.count.toLocaleString(locale)}</strong>
             </div>
           ))}
         </div>
         <div className="panel diagnostics-list">
           <div className="panel-heading">
             <Icon name="chart" size={23} />
-            <h2>Models observed</h2>
+            <h2>{t('diagnostics.modelsObserved')}</h2>
           </div>
           {diagnostics.modelIds.map((model) => (
             <div className="model-row" key={model}>
               <span className="model-dot" />
               <code>{model}</code>
-              <span className="model-status">eligible evidence</span>
+              <span className="model-status">{t('diagnostics.eligibleEvidence')}</span>
             </div>
           ))}
           <div className="privacy-note">
             <Icon name="lock" size={17} />
-            {diagnostics.privacy}
+            {t('diagnostics.dataPrivacy')}
           </div>
         </div>
       </div>
       <div className="panel diagnostic-callout">
         <Icon name="info" size={20} />
         <div>
-          <strong>
-            Diagnostics never include prompts, account identifiers, or full local paths.
-          </strong>
-          <span>
-            Use this page to identify unpriced models, reset boundaries, and data-quality
-            interruptions before relying on an estimate.
-          </span>
+          <strong>{t('diagnostics.privacyTitle')}</strong>
+          <span>{t('diagnostics.privacyDescription')}</span>
         </div>
       </div>
     </section>

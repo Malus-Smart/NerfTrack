@@ -300,6 +300,8 @@ impl AdvancedSettings {
 pub struct AppSettings {
     #[serde(flatten)]
     pub advanced: AdvancedSettings,
+    #[serde(default = "default_locale")]
+    pub locale: String,
     pub appearance: String,
     pub currency: String,
     pub local_only: bool,
@@ -311,6 +313,10 @@ pub struct AppSettings {
     pub installation_marker: String,
     #[serde(default)]
     pub custom_pricing: Vec<CustomPriceOverride>,
+}
+
+fn default_locale() -> String {
+    "system".into()
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -346,6 +352,7 @@ impl Default for AppSettings {
     fn default() -> Self {
         Self {
             advanced: AdvancedSettings::default(),
+            locale: default_locale(),
             appearance: "dark".into(),
             currency: "USD".into(),
             local_only: true,
@@ -388,6 +395,35 @@ mod tests {
     use super::AppSettings;
 
     #[test]
+    fn settings_default_to_system_locale() {
+        assert_eq!(AppSettings::default().locale, "system");
+    }
+
+    #[test]
+    fn settings_without_locale_preserve_existing_values() {
+        let settings: AppSettings = serde_json::from_str(
+            r#"{
+                "refreshIntervalSeconds": 20,
+                "reconciliationIntervalHours": 6,
+                "monitoringGapMinutes": 12,
+                "reducedMotion": true,
+                "appearance": "dark",
+                "currency": "USD",
+                "localOnly": true,
+                "telemetry": false,
+                "autoUpdater": false
+            }"#,
+        )
+        .expect("settings saved before locale support should remain readable");
+
+        assert_eq!(settings.locale, "system");
+        assert_eq!(settings.advanced.refresh_interval_seconds, 20);
+        assert_eq!(settings.advanced.reconciliation_interval_hours, 6);
+        assert_eq!(settings.advanced.monitoring_gap_minutes, 12);
+        assert!(settings.advanced.reduced_motion);
+    }
+
+    #[test]
     fn settings_from_before_the_starter_page_defaults_to_unseen() {
         let settings: AppSettings = serde_json::from_str(
             r#"{
@@ -395,6 +431,7 @@ mod tests {
                 "reconciliationIntervalHours": 1,
                 "monitoringGapMinutes": 5,
                 "reducedMotion": false,
+                "locale": "system",
                 "appearance": "dark",
                 "currency": "USD",
                 "localOnly": true,

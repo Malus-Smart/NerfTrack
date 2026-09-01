@@ -2,6 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import type { HistoryPoint } from '../domain';
+import { I18nProvider } from '../i18n';
 import { UsageChart } from './UsageChart';
 import { demoAnnotations, getDemoHistory } from '../lib/fixtures';
 
@@ -398,6 +399,73 @@ describe('UsageChart', () => {
     expect(marker.querySelector('rect')).not.toBeInTheDocument();
     fireEvent.pointerEnter(marker);
     expect(screen.getByRole('tooltip')).toHaveTextContent('Reset changed');
+  });
+
+  it('localizes routine reset annotation labels', () => {
+    const points = getDemoHistory('1W').points;
+    const timestamp = points[Math.floor(points.length / 2)].timestamp;
+    render(
+      <I18nProvider locale="zh-CN">
+        <UsageChart
+          points={points}
+          annotations={[
+            {
+              id: 'scheduled-reset',
+              timestamp,
+              label: 'Weekly window · scheduled reset',
+              kind: 'reset',
+            },
+          ]}
+          range="1W"
+          reducedMotion={false}
+        />
+      </I18nProvider>,
+    );
+
+    expect(screen.getByRole('img', { name: /计划重置/ })).toBeInTheDocument();
+  });
+
+  it('localizes inactivity duration units', () => {
+    const points = getDemoHistory('1D')
+      .points.slice(0, 2)
+      .map((point, index) => ({
+        ...point,
+        timestamp: index === 0 ? 0 : 12 * 60 * 60 * 1_000,
+        epoch: index + 1,
+      }));
+    render(
+      <I18nProvider locale="zh-CN">
+        <UsageChart points={points} annotations={[]} range="1D" reducedMotion={false} />
+      </I18nProvider>,
+    );
+
+    expect(screen.getByRole('img', { name: '无活动，持续 12 小时' })).toBeInTheDocument();
+  });
+
+  it('formats chart currency with the active locale', async () => {
+    const user = userEvent.setup();
+    render(
+      <I18nProvider locale="zh-CN">
+        <UsageChart
+          points={[
+            historyPoint({
+              timestamp: 0,
+              estimatedWeeklyValueUsd: 1_234.5,
+              observedCostUsd: 1_234.5,
+            }),
+          ]}
+          annotations={[]}
+          range="1D"
+          reducedMotion={false}
+        />
+      </I18nProvider>,
+    );
+
+    const chart = screen.getByRole('img', { name: /每周 API 等值估算历史图表/ });
+    await user.click(chart);
+    await user.keyboard('{ArrowLeft}');
+
+    expect(document.querySelector('.scrub-readout')).toHaveTextContent('US$1,234.50');
   });
 
   it('plots stabilized estimates and excludes comparison baselines from axis bounds', () => {

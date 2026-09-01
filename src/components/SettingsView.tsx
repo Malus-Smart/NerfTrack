@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import type { AppSettings, CustomPriceOverride } from '../domain';
+import { useI18n, type LocalePreference, type MessageKey } from '../i18n';
 import { Icon } from './Icons';
 
 interface SettingsViewProps {
   settings: AppSettings;
   detectedModelIds: string[];
-  onChange: (key: keyof AppSettings, value: number | boolean) => void;
+  onChange: (key: keyof AppSettings, value: number | boolean | string) => void;
   onCustomPricingChange: (prices: CustomPriceOverride[]) => Promise<void>;
   onResetAllData: () => Promise<void>;
   onRestoreLastCheckpoint: () => Promise<void>;
@@ -15,36 +16,36 @@ interface SettingsViewProps {
 
 const advancedRows: Array<{
   key: keyof AppSettings;
-  label: string;
-  description: string;
+  labelKey: MessageKey;
+  descriptionKey: MessageKey;
   type: 'number' | 'toggle';
   min?: number;
   max?: number;
   step?: number;
-  suffix?: string;
+  suffixKey?: MessageKey;
 }> = [
   {
     key: 'reconciliationIntervalHours',
-    label: 'Reconciliation interval',
-    description: 'Re-scan known files and recover missed notifications.',
+    labelKey: 'settings.reconciliationInterval',
+    descriptionKey: 'settings.reconciliationDescription',
     type: 'number',
     min: 1,
     max: 24,
-    suffix: ' h',
+    suffixKey: 'settings.hours',
   },
   {
     key: 'monitoringGapMinutes',
-    label: 'Monitoring gap threshold',
-    description: 'Record a collection interruption for diagnostics.',
+    labelKey: 'settings.monitoringGap',
+    descriptionKey: 'settings.monitoringGapDescription',
     type: 'number',
     min: 1,
     max: 30,
-    suffix: ' min',
+    suffixKey: 'settings.minutes',
   },
   {
     key: 'reducedMotion',
-    label: 'Reduced motion',
-    description: 'Disable estimate-finalization animations and motion cues.',
+    labelKey: 'settings.reducedMotion',
+    descriptionKey: 'settings.reducedMotionDescription',
     type: 'toggle',
   },
 ];
@@ -67,13 +68,17 @@ export function SettingsView({
   onImportAllData,
   onOpenStarterPage,
 }: SettingsViewProps) {
+  const { t } = useI18n();
   const [dataAction, setDataAction] = useState<
     'idle' | 'resetting' | 'restoring-checkpoint' | 'importing-all'
   >('idle');
   const [confirmReset, setConfirmReset] = useState(false);
-  const [dataMessage, setDataMessage] = useState<string | null>(null);
+  const [dataMessage, setDataMessage] = useState<{
+    key: MessageKey;
+    values?: Record<string, string | number>;
+  } | null>(null);
   const [pricingDraft, setPricingDraft] = useState<CustomPriceOverride[]>(settings.customPricing);
-  const [pricingError, setPricingError] = useState<string | null>(null);
+  const [pricingError, setPricingError] = useState<MessageKey | null>(null);
   const [pricingSaving, setPricingSaving] = useState(false);
   const draftModelIds = new Set(pricingDraft.map((price) => price.modelId.trim().toLowerCase()));
   const availableDetectedModelIds = detectedModelIds.filter(
@@ -93,13 +98,13 @@ export function SettingsView({
 
   const savePricing = async () => {
     for (const price of pricingDraft) {
-      if (!price.modelId.trim()) return setPricingError('Each override needs a model ID.');
+      if (!price.modelId.trim()) return setPricingError('settings.modelRequired');
       if (
         [price.inputUsdPerMillion, price.cachedInputUsdPerMillion, price.outputUsdPerMillion].some(
           (value) => !Number.isFinite(value) || value < 0,
         )
       ) {
-        return setPricingError('Prices must be finite, non-negative USD amounts.');
+        return setPricingError('settings.invalidPrices');
       }
     }
     setPricingSaving(true);
@@ -107,7 +112,7 @@ export function SettingsView({
     try {
       await onCustomPricingChange(pricingDraft);
     } catch {
-      setPricingError('Could not save local pricing overrides.');
+      setPricingError('settings.savePricingFailed');
     } finally {
       setPricingSaving(false);
     }
@@ -123,19 +128,19 @@ export function SettingsView({
       else await onImportAllData();
       setDataMessage(
         action === 'resetting'
-          ? 'Local data reset. Current weekly allowance synced; monitoring new Codex activity.'
+          ? { key: 'settings.resetSuccess' }
           : action === 'restoring-checkpoint'
-            ? 'Pre-reset graph restored and updated with activity since the reset.'
-            : 'Full import complete. All available Codex logs were indexed.',
+            ? { key: 'settings.restoreSuccess' }
+            : { key: 'settings.importSuccess' },
       );
     } catch (error) {
-      const actionLabel =
+      setDataMessage(
         action === 'resetting'
-          ? 'reset local data'
+          ? { key: 'settings.resetFailed', values: { error: String(error) } }
           : action === 'restoring-checkpoint'
-            ? 'restore the last checkpoint'
-            : 'import all log data';
-      setDataMessage(`Unable to ${actionLabel}: ${String(error)}`);
+            ? { key: 'settings.restoreFailed', values: { error: String(error) } }
+            : { key: 'settings.importFailed', values: { error: String(error) } },
+      );
     } finally {
       setDataAction('idle');
     }
@@ -144,33 +149,55 @@ export function SettingsView({
   return (
     <section className="page-shell settings-page">
       <header className="page-heading">
-        <h1>Settings</h1>
-        <p>Local defaults for monitoring, privacy, and presentation.</p>
+        <h1>{t('settings.title')}</h1>
+        <p>{t('settings.description')}</p>
       </header>
+      <div className="panel defaults-panel">
+        <div>
+          <span className="settings-kicker">{t('settings.language')}</span>
+          <strong>{t(`settings.language.${settings.locale}`)}</strong>
+        </div>
+        <label className="select-wrap">
+          <span className="sr-only">{t('settings.language')}</span>
+          <select
+            aria-label={t('settings.language')}
+            value={settings.locale}
+            onChange={(event) => onChange('locale', event.target.value as LocalePreference)}
+          >
+            {(['system', 'en-US', 'zh-CN', 'zh-TW'] as const).map((locale) => (
+              <option key={locale} value={locale}>
+                {t(`settings.language.${locale}`)}
+              </option>
+            ))}
+          </select>
+          <Icon name="chevron" size={16} />
+        </label>
+      </div>
       <div className="settings-layout">
         <div className="panel settings-panel">
           <div className="panel-heading">
             <Icon name="settings" size={23} />
-            <h2>Advanced monitoring</h2>
+            <h2>{t('settings.advanced')}</h2>
           </div>
           {advancedRows.map((row) => (
             <div className="advanced-row" key={row.key}>
               <div className="advanced-copy">
-                <strong>{row.label}</strong>
-                <span>{row.description}</span>
+                <strong>{t(row.labelKey)}</strong>
+                <span>{t(row.descriptionKey)}</span>
               </div>
               {row.type === 'toggle' ? (
                 <button
                   className={`toggle ${settings[row.key] ? 'on' : ''}`}
                   role="switch"
                   aria-checked={Boolean(settings[row.key])}
+                  aria-label={t(row.labelKey)}
                   onClick={() => onChange(row.key, !settings[row.key])}
                 >
                   <span />
                 </button>
               ) : (
                 <label className="number-input">
-                  <span className="sr-only">{row.label}</span>
+                  <span className="sr-only">{t(row.labelKey)}</span>
                   <input
                     type="number"
                     min={row.min}
@@ -179,7 +206,7 @@ export function SettingsView({
                     value={settings[row.key] as number}
                     onChange={(event) => onChange(row.key, Number(event.target.value))}
                   />
-                  <em>{row.suffix}</em>
+                  <em>{row.suffixKey ? ` ${t(row.suffixKey)}` : ''}</em>
                 </label>
               )}
             </div>
@@ -189,40 +216,29 @@ export function SettingsView({
           <div className="privacy-large-icon">
             <Icon name="lock" size={29} />
           </div>
-          <h2>Privacy first</h2>
-          <p>
-            NerfTrack runs locally. No prompts, code, raw account identifiers, or telemetry leave
-            this device; only public pricing metadata is refreshed at launch.
-          </p>
+          <h2>{t('settings.privacyFirst')}</h2>
+          <p>{t('settings.privacyDescription')}</p>
           <div className="privacy-check">
             <Icon name="check" size={17} />
-            Local-only storage
+            {t('settings.localStorage')}
           </div>
           <div className="privacy-check">
             <Icon name="check" size={17} />
-            GitHub Releases checks stay opt-in to configuration
+            {t('settings.releaseChecks')}
           </div>
           <div className="privacy-check">
             <Icon name="check" size={17} />
-            Token prices stay local
+            {t('settings.localPrices')}
           </div>
         </div>
       </div>
       <section className="panel custom-pricing-panel" aria-labelledby="custom-pricing-heading">
         <div className="panel-heading">
           <Icon name="settings" size={23} />
-          <h2 id="custom-pricing-heading">Custom API pricing</h2>
+          <h2 id="custom-pricing-heading">{t('settings.customPricing')}</h2>
         </div>
-        <p>
-          Overrides are local only and take precedence over models.dev and NerfTrack’s embedded
-          fallback rates. Use them for an unpriced model or a local alias; prices are USD per 1M
-          tokens.
-        </p>
-        <p className="settings-note">
-          NerfTrack refreshes the public models.dev OpenAI catalog at each launch and caches the
-          last valid response. If it is unavailable, embedded OpenAI fallback rates are used.
-          Unknown models remain pending until a catalog price or override is available.
-        </p>
+        <p>{t('settings.pricingDescription')}</p>
+        <p className="settings-note">{t('settings.pricingNote')}</p>
         {detectedModelIds.length > 0 && (
           <div className="detected-models-callout">
             <div className="detected-models-copy">
@@ -230,15 +246,18 @@ export function SettingsView({
               <div>
                 <strong>
                   {availableDetectedModelIds.length > 0
-                    ? `${availableDetectedModelIds.length} unpriced ${
-                        availableDetectedModelIds.length === 1 ? 'model' : 'models'
-                      } detected`
-                    : 'All detected models are in this draft'}
+                    ? t(
+                        availableDetectedModelIds.length === 1
+                          ? 'settings.unpricedModel'
+                          : 'settings.unpricedModels',
+                        { count: availableDetectedModelIds.length },
+                      )
+                    : t('settings.allDetectedDrafted')}
                 </strong>
                 <span>
                   {availableDetectedModelIds.length > 0
                     ? availableDetectedModelIds.join(' · ')
-                    : 'Review the prices below, then save when ready.'}
+                    : t('settings.reviewPrices')}
                 </span>
               </div>
             </div>
@@ -248,18 +267,22 @@ export function SettingsView({
                 className="detected-models-button"
                 onClick={autofillDetectedModels}
               >
-                Autofill detected {availableDetectedModelIds.length === 1 ? 'model' : 'models'}
+                {t(
+                  availableDetectedModelIds.length === 1
+                    ? 'settings.autofillModel'
+                    : 'settings.autofillModels',
+                )}
               </button>
             )}
           </div>
         )}
-        <div className="custom-price-grid" role="group" aria-label="Custom API pricing overrides">
+        <div className="custom-price-grid" role="group" aria-label={t('settings.pricingGroup')}>
           {pricingDraft.map((price, index) => (
             <div className="custom-price-row" key={`${price.modelId}-${index}`}>
               <label>
-                Model ID
+                {t('settings.modelId')}
                 <input
-                  aria-label={`Model ID ${index + 1}`}
+                  aria-label={`${t('settings.modelId')} ${index + 1}`}
                   value={price.modelId}
                   onChange={(event) =>
                     setPricingDraft((current) =>
@@ -271,9 +294,9 @@ export function SettingsView({
                 />
               </label>
               <label>
-                Alias
+                {t('settings.alias')}
                 <input
-                  aria-label={`Alias ${index + 1}`}
+                  aria-label={`${t('settings.alias')} ${index + 1}`}
                   value={price.alias ?? ''}
                   onChange={(event) =>
                     setPricingDraft((current) =>
@@ -289,12 +312,18 @@ export function SettingsView({
               ).map((field) => (
                 <label key={field}>
                   {field === 'inputUsdPerMillion'
-                    ? 'Input'
+                    ? t('settings.input')
                     : field === 'cachedInputUsdPerMillion'
-                      ? 'Cached input'
-                      : 'Output'}
+                      ? t('settings.cachedInput')
+                      : t('settings.output')}
                   <input
-                    aria-label={`${field} ${index + 1}`}
+                    aria-label={`${
+                      field === 'inputUsdPerMillion'
+                        ? t('settings.input')
+                        : field === 'cachedInputUsdPerMillion'
+                          ? t('settings.cachedInput')
+                          : t('settings.output')
+                    } ${index + 1}`}
                     type="number"
                     min="0"
                     step="any"
@@ -320,14 +349,14 @@ export function SettingsView({
                   )
                 }
               >
-                Remove
+                {t('settings.remove')}
               </button>
             </div>
           ))}
         </div>
         {pricingError && (
           <p className="settings-error" role="alert">
-            {pricingError}
+            {t(pricingError)}
           </p>
         )}
         <div className="custom-price-actions">
@@ -335,7 +364,7 @@ export function SettingsView({
             type="button"
             onClick={() => setPricingDraft((current) => [...current, createPricingOverride()])}
           >
-            Add override
+            {t('settings.addOverride')}
           </button>
           <button
             type="button"
@@ -343,47 +372,31 @@ export function SettingsView({
             disabled={pricingSaving}
             onClick={() => void savePricing()}
           >
-            {pricingSaving ? 'Saving…' : 'Save pricing'}
+            {pricingSaving ? t('settings.saving') : t('settings.savePricing')}
           </button>
         </div>
       </section>
-      <div className="panel defaults-panel">
-        <div>
-          <span className="settings-kicker">V1 defaults</span>
-          <strong>English · USD · dark appearance</strong>
-        </div>
-        <span className="algorithm-badge">Token estimator v3 · local API-equivalent pricing</span>
-      </div>
       <section className="panel starter-settings-panel" aria-labelledby="starter-settings-heading">
         <div>
-          <span className="settings-kicker">Community</span>
-          <h2 id="starter-settings-heading">Starter page</h2>
-          <p>
-            Reopen the GitHub support page any time. NerfTrack will remember that you have seen it
-            again after you continue.
-          </p>
+          <span className="settings-kicker">{t('settings.community')}</span>
+          <h2 id="starter-settings-heading">{t('settings.starterPage')}</h2>
+          <p>{t('settings.starterDescription')}</p>
         </div>
         <button type="button" className="data-action-button" onClick={onOpenStarterPage}>
           <Icon name="refresh" size={15} />
-          Open starter page again
+          {t('settings.openStarter')}
         </button>
       </section>
       <section className="panel data-management-panel" aria-labelledby="data-management-heading">
         <div className="panel-heading">
           <Icon name="history" size={23} />
-          <h2 id="data-management-heading">Data management</h2>
+          <h2 id="data-management-heading">{t('settings.dataManagement')}</h2>
         </div>
-        <p className="data-management-intro">
-          Reset local history without touching Codex logs. A fast checkpoint is saved immediately
-          before every reset, while a full import can rebuild the index from every readable log.
-        </p>
+        <p className="data-management-intro">{t('settings.dataIntro')}</p>
         <div className="data-action-grid">
           <div className="data-action-copy">
-            <strong>Reset all data</strong>
-            <span>
-              Clear imported usage, quota observations, graphs, diagnostics, and annotations. New
-              Codex activity is monitored immediately after reset.
-            </span>
+            <strong>{t('settings.resetAllData')}</strong>
+            <span>{t('settings.resetDescription')}</span>
             <button
               className="data-action-button danger"
               disabled={dataAction !== 'idle'}
@@ -392,18 +405,15 @@ export function SettingsView({
                 setConfirmReset(true);
               }}
             >
-              Reset all data
+              {t('settings.resetAllData')}
             </button>
           </div>
           <div className="data-action-copy">
             <div className="data-action-heading">
               <Icon name="history" size={17} />
-              <strong>Restore from last checkpoint</strong>
+              <strong>{t('settings.restoreCheckpoint')}</strong>
             </div>
-            <span>
-              Restore the graph captured immediately before the latest reset, then index only newer
-              activity. This is the fastest recovery option.
-            </span>
+            <span>{t('settings.restoreDescription')}</span>
             <button
               className="data-action-button"
               disabled={dataAction !== 'idle'}
@@ -411,26 +421,23 @@ export function SettingsView({
             >
               <Icon name="refresh" size={15} />
               {dataAction === 'restoring-checkpoint'
-                ? 'Restoring checkpoint…'
-                : 'Restore last checkpoint'}
+                ? t('settings.restoring')
+                : t('settings.restoreLast')}
             </button>
           </div>
           <div className="data-action-copy">
             <div className="data-action-heading">
               <Icon name="refresh" size={17} />
-              <strong>Import all data</strong>
+              <strong>{t('settings.importAll')}</strong>
             </div>
-            <span>
-              Clear the import index and re-read every available Codex log from the beginning. Best
-              for a complete rebuild; may take longer.
-            </span>
+            <span>{t('settings.importDescription')}</span>
             <button
               className="data-action-button secondary"
               disabled={dataAction !== 'idle'}
               onClick={() => void runDataAction('importing-all')}
             >
               <Icon name="refresh" size={15} />
-              {dataAction === 'importing-all' ? 'Importing all data…' : 'Import all data'}
+              {dataAction === 'importing-all' ? t('settings.importing') : t('settings.importAll')}
             </button>
           </div>
         </div>
@@ -441,16 +448,12 @@ export function SettingsView({
             aria-labelledby="reset-confirm-heading"
           >
             <div>
-              <strong id="reset-confirm-heading">Reset all local data?</strong>
-              <span>
-                This clears NerfTrack’s imported usage, quota observations, graph history,
-                diagnostics, annotations, and scan checkpoints. Codex source logs are not deleted;
-                monitoring resumes from the current end of those logs.
-              </span>
+              <strong id="reset-confirm-heading">{t('settings.confirmResetTitle')}</strong>
+              <span>{t('settings.confirmResetDescription')}</span>
             </div>
             <div className="data-confirmation-actions">
               <button className="data-action-button quiet" onClick={() => setConfirmReset(false)}>
-                Cancel
+                {t('settings.cancel')}
               </button>
               <button
                 className="data-action-button danger"
@@ -459,14 +462,14 @@ export function SettingsView({
                   void runDataAction('resetting');
                 }}
               >
-                Confirm reset
+                {t('settings.confirmReset')}
               </button>
             </div>
           </div>
         )}
         {dataMessage && (
           <p className="data-action-message" role="status">
-            {dataMessage}
+            {t(dataMessage.key, dataMessage.values)}
           </p>
         )}
       </section>

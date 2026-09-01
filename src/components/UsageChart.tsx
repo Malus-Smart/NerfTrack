@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Annotation, HistoryPoint, Range } from '../domain';
+import { formatResetReason, useI18n, type Locale, type MessageKey } from '../i18n';
 import { getChartEstimate, isComparisonEligiblePoint } from '../lib/comparison';
 import { formatYAxisTick, getChartYAxisScale, yAxisValueToY } from '../lib/chartScale';
 import { Icon } from './Icons';
@@ -55,35 +56,37 @@ interface AnnotationMarker {
   label: string;
 }
 
-function formatDate(timestamp: number, range: Range) {
+function formatDate(timestamp: number, range: Range, locale: Locale) {
   const date = new Date(timestamp);
   if (range === '1D') {
-    return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    return date.toLocaleTimeString(locale, { hour: 'numeric', minute: '2-digit' });
   }
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  return date.toLocaleDateString(locale, { month: 'short', day: 'numeric' });
 }
 
-function formatUsd(value: number | null) {
-  return value === null ? '—' : `$${value.toFixed(2)}`;
+function formatUsd(value: number | null, locale: Locale) {
+  return value === null
+    ? '—'
+    : new Intl.NumberFormat(locale, {
+        style: 'currency',
+        currency: 'USD',
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }).format(value);
 }
 
-function annotationLabel(label: string) {
-  const compact = label
-    .replace(/^Weekly window · /, '')
-    .replace(/_/g, ' ')
-    .replace('reported reset changed', 'reset changed')
-    .replace('usage decreased', 'usage drop');
-  return compact.charAt(0).toUpperCase() + compact.slice(1);
-}
+type Translate = (key: MessageKey, values?: Record<string, string | number>) => string;
 
-function formatGapDuration(durationMs: number) {
+function formatGapDuration(durationMs: number, locale: Locale, t: Translate) {
+  const format = (value: number, key: MessageKey) =>
+    t(key, { value: value.toLocaleString(locale) });
   const totalMinutes = Math.max(1, Math.round(durationMs / 60_000));
-  if (totalMinutes < 60) return `${totalMinutes}m`;
+  if (totalMinutes < 60) return format(totalMinutes, 'chart.duration.minutes');
   const totalHours = Math.round(totalMinutes / 60);
-  if (totalHours < 48) return `${totalHours}h`;
+  if (totalHours < 48) return format(totalHours, 'chart.duration.hours');
   const days = Math.round(totalHours / 24);
-  if (days < 60) return `${days}d`;
-  return `${Math.round(days / 30)}mo`;
+  if (days < 60) return format(days, 'chart.duration.days');
+  return format(Math.round(days / 30), 'chart.duration.months');
 }
 
 function nearestPoint(points: HistoryPoint[], timestamp: number) {
@@ -332,6 +335,7 @@ export function UsageChart({
   baselineEstimatedWeeklyValueUsd = null,
   onScrub,
 }: UsageChartProps) {
+  const { locale, t } = useI18n();
   const svgRef = useRef<SVGSVGElement>(null);
   const isDragging = useRef(false);
   const anchorRef = useRef<HistoryPoint | null>(null);
@@ -435,9 +439,9 @@ export function UsageChart({
         id: annotation.id,
         x: timestampToX(timeline, annotation.timestamp),
         count: 1,
-        label: `${annotationLabel(annotation.label)} · ${new Date(
+        label: `${formatResetReason(locale, annotation.label)} · ${new Date(
           annotation.timestamp,
-        ).toLocaleString('en-US', {
+        ).toLocaleString(locale, {
           month: 'short',
           day: 'numeric',
           hour: 'numeric',
@@ -451,14 +455,14 @@ export function UsageChart({
         const count = previous.count + 1;
         previous.x = (previous.x * previous.count + marker.x) / count;
         previous.count = count;
-        previous.label = `${count} reset changes`;
+        previous.label = t('chart.resetChanges', { count });
         previous.id = `${previous.id}-${marker.id}`;
       } else {
         groups.push({ ...marker });
       }
       return groups;
     }, []);
-  }, [annotations, rangeEnd, rangeStart, timeline]);
+  }, [annotations, locale, rangeEnd, rangeStart, t, timeline]);
   const selected = selection?.point ?? null;
   const selectedCoordinate = selection?.coordinate ?? null;
   const anchorCoordinate = useMemo(() => {
@@ -584,8 +588,8 @@ export function UsageChart({
       style={{ '--chart-color': chartColor } as React.CSSProperties}
     >
       <div className="chart-value-label">
-        <span>Estimated weekly API-equivalent value</span>
-        <small>USD · local token-derived estimate</small>
+        <span>{t('chart.title')}</span>
+        <small>{t('chart.subtitle')}</small>
       </div>
       <div className="chart-canvas-wrap">
         {noUsageHover && (
@@ -598,7 +602,9 @@ export function UsageChart({
               } as React.CSSProperties
             }
           >
-            No activity · {formatGapDuration(noUsageHover.durationMs)}
+            {t('chart.noUsage', {
+              duration: formatGapDuration(noUsageHover.durationMs, locale, t),
+            })}
           </div>
         )}
         {annotationHover && (
@@ -625,18 +631,20 @@ export function UsageChart({
             }
           >
             <Icon name="calendar" size={14} />
-            <span>{formatDate(selected.timestamp, range)}</span>
-            <strong>{formatUsd(historySignal(selected))}</strong>
-            <small>Observed: {formatUsd(selected.observedCostUsd)}</small>
+            <span>{formatDate(selected.timestamp, range, locale)}</span>
+            <strong>{formatUsd(historySignal(selected), locale)}</strong>
+            <small>
+              {t('chart.observed')}: {formatUsd(selected.observedCostUsd, locale)}
+            </small>
           </div>
         )}
-        {!points.length && <div className="chart-empty">Waiting for weekly observations</div>}
+        {!points.length && <div className="chart-empty">{t('chart.waiting')}</div>}
         <svg
           ref={svgRef}
           className={`chart-canvas ${isDragging.current ? 'is-scrubbing' : ''}`}
           viewBox={`0 0 ${chartWidth} ${chartHeight}`}
           role="img"
-          aria-label="Estimated weekly API-equivalent value history chart. Use arrow keys to move between points."
+          aria-label={t('chart.aria')}
           aria-grabbed={isDragging.current}
           tabIndex={0}
           onPointerDown={(event) => {
@@ -749,14 +757,20 @@ export function UsageChart({
                 key={`gap-${gap.startTimestamp}`}
                 className="chart-inactivity-gap"
                 role="img"
-                aria-label={`No activity for ${formatGapDuration(durationMs)}`}
+                aria-label={t('chart.noActivityFor', {
+                  duration: formatGapDuration(durationMs, locale, t),
+                })}
                 tabIndex={0}
                 onPointerEnter={() => setNoUsageHover({ x: centerX, durationMs })}
                 onPointerLeave={() => setNoUsageHover(null)}
                 onFocus={() => setNoUsageHover({ x: centerX, durationMs })}
                 onBlur={() => setNoUsageHover(null)}
               >
-                <title>No activity for {formatGapDuration(durationMs)}</title>
+                <title>
+                  {t('chart.noActivityFor', {
+                    duration: formatGapDuration(durationMs, locale, t),
+                  })}
+                </title>
                 <rect
                   x={gap.startX}
                   y={plotTop}
@@ -845,7 +859,7 @@ export function UsageChart({
             const y = yAxisValueToY(value, yAxisScale, plotTop, plotBottom);
             return (
               <text key={`y-${value}`} className="chart-y-label" x="963" y={y + 4}>
-                {formatYAxisTick(value)}
+                {formatYAxisTick(value, locale)}
               </text>
             );
           })}
@@ -862,7 +876,7 @@ export function UsageChart({
                   index === 0 ? 'start' : index === labelRatios.length - 1 ? 'end' : 'middle'
                 }
               >
-                {formatDate(timestamp, range)}
+                {formatDate(timestamp, range, locale)}
               </text>
             );
           })}

@@ -47,14 +47,22 @@ import {
 } from './lib/updater';
 import type { Annotation, DiagnosticsSummary, HistoryResponse } from './domain';
 import type { UpdateCheckResult, UpdateState } from './domain';
+import {
+  detectLocale,
+  I18nProvider,
+  translate,
+  useI18n,
+  type Locale,
+  type MessageKey,
+} from './i18n';
 
 const ranges: Range[] = ['1D', '1W', '1M', '3M', '6M'];
-const rangeLabels: Record<Range, string> = {
-  '1D': 'Past Day',
-  '1W': 'Past Week',
-  '1M': 'Past Month',
-  '3M': 'Past 3 Months',
-  '6M': 'Past 6 Months',
+const rangeLabelKeys: Record<Range, MessageKey> = {
+  '1D': 'home.range.1D',
+  '1W': 'home.range.1W',
+  '1M': 'home.range.1M',
+  '3M': 'home.range.3M',
+  '6M': 'home.range.6M',
 };
 const rangeDurationMs: Record<Range, number> = {
   '1D': 86_400_000,
@@ -64,21 +72,34 @@ const rangeDurationMs: Record<Range, number> = {
   '6M': 15_552_000_000,
 };
 
-function formatUsd(value: number | null) {
-  return value === null ? 'Not available' : `$${value.toFixed(2)}`;
+type Translate = (key: MessageKey, values?: Record<string, string | number>) => string;
+
+function formatUsd(value: number | null, locale: Locale, t: Translate) {
+  return value === null
+    ? t('home.notAvailable')
+    : `$${value.toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-function formatEstimatedUsd(value: number | null) {
-  return value === null ? 'Not available' : `≈$${Math.round(value).toLocaleString('en-US')}`;
+function formatEstimatedUsd(value: number | null, locale: Locale, t: Translate) {
+  return value === null ? t('home.notAvailable') : `≈$${Math.round(value).toLocaleString(locale)}`;
 }
 
-function formatSignedUsd(value: number | null) {
+function formatSignedUsd(value: number | null, locale: Locale) {
   if (value === null) return '—';
-  return `${value < 0 ? '−' : '+'}$${Math.abs(value).toFixed(2)}`;
+  return `${value < 0 ? '−' : '+'}$${Math.abs(value).toLocaleString(locale, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
 }
 
-function formatPercent(value: number | null) {
-  return value === null ? '—' : `${value < 0 ? '−' : '+'}${Math.abs(value).toFixed(2)}%`;
+function formatPercent(value: number | null, locale: Locale) {
+  return value === null
+    ? '—'
+    : `${value < 0 ? '−' : '+'}${Math.abs(value).toLocaleString(locale, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+        useGrouping: false,
+      })}%`;
 }
 
 function hasStableEstimate(quote: CurrentQuote | null) {
@@ -87,39 +108,48 @@ function hasStableEstimate(quote: CurrentQuote | null) {
   );
 }
 
-function formatCoverage(value: number | null | undefined) {
-  if (value === null || value === undefined) return 'unknown coverage';
-  return `${value.toFixed(value % 1 === 0 ? 0 : 1)} percentage-point coverage`;
+function formatCoverage(value: number | null | undefined, locale: Locale, t: Translate) {
+  if (value === null || value === undefined) return t('home.unknownCoverage');
+  return t('home.coverage', {
+    value: value.toLocaleString(locale, { maximumFractionDigits: 1 }),
+  });
 }
 
-function calibrationNote(quote: CurrentQuote | null) {
+function formatObservationCount(count: number, locale: Locale, t: Translate) {
+  return t(count === 1 ? 'home.validObservation' : 'home.validObservations', {
+    count: count.toLocaleString(locale),
+  });
+}
+
+function calibrationNote(quote: CurrentQuote | null, locale: Locale, t: Translate) {
   if (!quote || quote.estimatedWeeklyValueUsd === null) {
-    return (
-      quote?.note ?? 'Waiting for a positive weekly-usage change paired with local token cost.'
-    );
+    return t('home.waitingForPair');
   }
-  const observations = quote.validObservationCount.toLocaleString('en-US');
-  return `Early projection ${formatEstimatedUsd(quote.estimatedWeeklyValueUsd)} from ${observations} valid observation${
-    quote.validObservationCount === 1 ? '' : 's'
-  } and ${formatCoverage(quote.percentageCoverage)}. Waiting for more movement before calling it stable.`;
+  return t('home.earlyProjection', {
+    value: formatEstimatedUsd(quote.estimatedWeeklyValueUsd, locale, t),
+    observations: formatObservationCount(quote.validObservationCount, locale, t),
+    coverage: formatCoverage(quote.percentageCoverage, locale, t),
+  });
 }
 
-function formatReset(status: AppStatus, now: number) {
-  if (!status.resetAt) return 'Pending';
+function formatReset(status: AppStatus, now: number, t: Translate) {
+  if (!status.resetAt) return t('home.pending');
   const remaining = status.resetAt - now;
-  if (remaining <= 0) return 'Reset observed';
+  if (remaining <= 0) return t('home.resetObserved');
   const minutes = Math.max(1, Math.floor(remaining / 60_000));
   const days = Math.floor(minutes / 1_440);
   const hours = Math.floor((minutes % 1_440) / 60);
   const remainderMinutes = minutes % 60;
-  if (days > 0) return `${days}d ${hours}h ${remainderMinutes}m`;
-  if (hours > 0) return `${hours}h ${remainderMinutes}m`;
-  return `${remainderMinutes}m`;
+  if (days > 0)
+    return `${days}${t('common.dayShort')} ${hours}${t('common.hourShort')} ${remainderMinutes}${t('common.minuteShort')}`;
+  if (hours > 0)
+    return `${hours}${t('common.hourShort')} ${remainderMinutes}${t('common.minuteShort')}`;
+  return `${remainderMinutes}${t('common.minuteShort')}`;
 }
 
-function formatResetDate(timestamp: number | null) {
-  if (!timestamp) return 'Awaiting quota window';
-  return new Date(timestamp).toLocaleString('en-US', {
+function formatResetDate(timestamp: number | null, locale: Locale, t: Translate) {
+  if (!timestamp) return t('home.awaitingWindow');
+  return new Date(timestamp).toLocaleString(locale, {
     month: 'short',
     day: 'numeric',
     hour: 'numeric',
@@ -146,40 +176,44 @@ function useLiveNow() {
 
 function ResetMetric({ status }: { status: AppStatus }) {
   const now = useLiveNow();
+  const { locale, t } = useI18n();
   return (
     <MetricCard
       icon="clock"
       iconTone="blue"
-      label="Resets In"
-      value={formatReset(status, now)}
-      detail={formatResetDate(status.resetAt)}
+      label={t('home.resetsIn')}
+      value={formatReset(status, now, t)}
+      detail={formatResetDate(status.resetAt, locale, t)}
     />
   );
 }
 
 function LiveRefreshStatus() {
   const now = useLiveNow();
+  const { locale, t } = useI18n();
   return (
     <span className="refresh-status" aria-live="off">
       <i />
-      Live ·{' '}
-      {new Date(now).toLocaleTimeString('en-US', {
+      {t('home.live')} ·{' '}
+      {new Date(now).toLocaleTimeString(locale, {
         hour: 'numeric',
         minute: '2-digit',
         second: '2-digit',
       })}
-      {' · data 10s'}
+      {' · '}
+      {t('home.dataInterval', { seconds: 10 })}
     </span>
   );
 }
 
-function LocalIndexingBanner({ detail }: { detail: string }) {
+function LocalIndexingBanner() {
+  const { t } = useI18n();
   return (
     <div className="indexing-banner" role="status" aria-live="polite">
       <span className="indexing-spinner" aria-hidden="true" />
       <span>
-        <strong>Indexing local data</strong>
-        <small>{detail} You can keep using NerfTrack while this finishes.</small>
+        <strong>{t('home.indexing')}</strong>
+        <small>{t('home.indexingContinue')}</small>
       </span>
     </div>
   );
@@ -205,8 +239,9 @@ function errorMessage(cause: unknown) {
 }
 
 function RangeSelector({ range, onChange }: { range: Range; onChange: (range: Range) => void }) {
+  const { t } = useI18n();
   return (
-    <div className="range-control" role="tablist" aria-label="History range">
+    <div className="range-control" role="tablist" aria-label={t('home.historyRange')}>
       {ranges.map((item) => (
         <button
           key={item}
@@ -247,6 +282,7 @@ export function HomeView({
   onResetAnnotations: () => void;
   onShareGraph?: () => Promise<void>;
 }) {
+  const { locale, t } = useI18n();
   const [scrubbed, setScrubbed] = useState<{
     point: HistoryPoint;
     anchor: HistoryPoint | null;
@@ -276,24 +312,26 @@ export function HomeView({
     availableHistoryEnd - availableHistoryStart < rangeDurationMs[range] * 0.98;
   const comparisonStartTimestamp = history.statistics.baselineTimestamp ?? availableHistoryStart;
   const comparisonLabel = scrubbed?.anchor
-    ? 'Selected range'
+    ? t('home.selectedRange')
     : scrubbed
-      ? new Date(scrubbed.point.timestamp).toLocaleString('en-US', {
+      ? new Date(scrubbed.point.timestamp).toLocaleString(locale, {
           month: 'short',
           day: 'numeric',
           hour: range === '1D' ? 'numeric' : undefined,
           minute: range === '1D' ? '2-digit' : undefined,
         })
       : history.statistics.baselineEstimatedWeeklyValueUsd === null
-        ? `${rangeLabels[range]} unavailable`
+        ? t('home.rangeUnavailable', { range: t(rangeLabelKeys[range]) })
         : (history.statistics.partial || usesAvailableHistory) && comparisonStartTimestamp !== null
-          ? `Since ${new Date(comparisonStartTimestamp).toLocaleString('en-US', {
-              month: 'short',
-              day: 'numeric',
-              hour: range === '1D' ? 'numeric' : undefined,
-              minute: range === '1D' ? '2-digit' : undefined,
-            })}`
-          : rangeLabels[range];
+          ? t('home.since', {
+              date: new Date(comparisonStartTimestamp).toLocaleString(locale, {
+                month: 'short',
+                day: 'numeric',
+                hour: range === '1D' ? 'numeric' : undefined,
+                minute: range === '1D' ? '2-digit' : undefined,
+              }),
+            })
+          : t(rangeLabelKeys[range]);
   const isEmpty = displayValue === null || !quote || quote.status === 'empty';
   const selectRange = (nextRange: Range) => {
     setScrubbed(null);
@@ -307,7 +345,7 @@ export function HomeView({
     try {
       await onShareGraph();
     } catch (cause) {
-      setShareError(`Couldn’t open the Share Your Graph page: ${errorMessage(cause)}`);
+      setShareError(t('home.shareFailed', { error: errorMessage(cause) }));
     } finally {
       setIsSharing(false);
     }
@@ -319,12 +357,8 @@ export function HomeView({
         <div className="hero-title-wrap">
           <HeaderIcon />
           <div>
-            <h1>Codex Weekly API-equivalent Estimator</h1>
-            <p>
-              {stableEstimate
-                ? 'Stable estimate from cumulative local usage and fetched model rates'
-                : 'Calibrating from cumulative local usage and fetched model rates'}
-            </p>
+            <h1>{t('home.title')}</h1>
+            <p>{stableEstimate ? t('home.stableDescription') : t('home.calibratingDescription')}</p>
           </div>
         </div>
         <div className="hero-controls">
@@ -334,15 +368,15 @@ export function HomeView({
             type="button"
             onClick={() => void shareGraph()}
             disabled={!onShareGraph || isSharing}
-            title="Browse and post in NerfTrack’s Share Your Graph discussion"
+            title={t('home.shareTitle')}
           >
             <Icon name="message" size={17} />
-            <span>{isSharing ? 'Opening…' : 'Share your graph'}</span>
+            <span>{isSharing ? t('home.opening') : t('home.shareGraph')}</span>
           </button>
           <button
             className={`refresh-button ${isRefreshing ? 'is-refreshing' : ''}`}
-            aria-label="Refresh data"
-            title="Refresh data"
+            aria-label={t('home.refresh')}
+            title={t('home.refresh')}
             disabled={isRefreshing}
             onClick={onRefresh}
           >
@@ -352,17 +386,19 @@ export function HomeView({
       </header>
       <div className="quote-heading">
         <strong className={isEmpty || (!stableEstimate && !scrubbed) ? 'empty-value' : ''}>
-          {stableEstimate || scrubbed ? formatEstimatedUsd(displayValue) : 'Calibrating'}
+          {stableEstimate || scrubbed
+            ? formatEstimatedUsd(displayValue, locale, t)
+            : t('home.calibrating')}
         </strong>
         {!isEmpty && (stableEstimate || scrubbed) && (
           <p className={displayChange !== null && displayChange < 0 ? 'negative' : 'positive'}>
-            {formatSignedUsd(displayChange)}{' '}
-            {displayPercent !== null ? `(${formatPercent(displayPercent)})` : ''}{' '}
+            {formatSignedUsd(displayChange, locale)}{' '}
+            {displayPercent !== null ? `(${formatPercent(displayPercent, locale)})` : ''}{' '}
             <span>{comparisonLabel}</span>
           </p>
         )}
         {(isEmpty || (!stableEstimate && !scrubbed)) && (
-          <p className="muted-state">{calibrationNote(quote)}</p>
+          <p className="muted-state">{calibrationNote(quote, locale, t)}</p>
         )}
       </div>
       <div className="chart-panel">
@@ -378,12 +414,12 @@ export function HomeView({
         <div className="chart-actions">
           <span>
             {history.statistics.partial || usesAvailableHistory
-              ? 'Showing all available log history'
-              : 'Complete range'}
+              ? t('home.allHistory')
+              : t('home.completeRange')}
           </span>
           <button type="button" onClick={onResetAnnotations}>
             <Icon name="refresh" size={14} />
-            Reset annotations
+            {t('home.resetAnnotations')}
           </button>
         </div>
         {shareError && (
@@ -396,24 +432,28 @@ export function HomeView({
         <MetricCard
           icon="chart"
           iconTone="green"
-          label={hasStableEstimate(quote) ? 'Stable Weekly API Value' : 'Early Weekly API Value'}
-          value={formatEstimatedUsd(quote?.estimatedWeeklyValueUsd ?? null)}
+          label={hasStableEstimate(quote) ? t('home.stableValue') : t('home.earlyValue')}
+          value={formatEstimatedUsd(quote?.estimatedWeeklyValueUsd ?? null, locale, t)}
           detail={
             hasStableEstimate(quote)
-              ? 'cumulative-window estimate'
-              : `${quote?.confidence ?? 'no'} confidence · ${formatCoverage(quote?.percentageCoverage)}`
+              ? t('home.cumulativeEstimate')
+              : `${t(`home.confidence.${quote?.confidence ?? 'none'}`)} · ${formatCoverage(
+                  quote?.percentageCoverage,
+                  locale,
+                  t,
+                )}`
           }
         />
         <MetricCard
           icon="chart"
           iconTone="lime"
-          label="Weekly Used"
+          label={t('home.weeklyUsed')}
           value={
             quote?.weeklyUsedPercent === null || quote?.weeklyUsedPercent === undefined
               ? '—'
               : `${Math.round(quote.weeklyUsedPercent)}%`
           }
-          detail="of allowance"
+          detail={t('home.ofAllowance')}
         >
           <UsageRing value={quote?.weeklyUsedPercent ?? null} />
         </MetricCard>
@@ -421,32 +461,32 @@ export function HomeView({
         <MetricCard
           icon="activity"
           iconTone="purple"
-          label="Observed Token Cost"
-          value={formatUsd(quote?.observedCostUsd ?? null)}
-          detail="this weekly window"
+          label={t('home.observedTokenCost')}
+          value={formatUsd(quote?.observedCostUsd ?? null, locale, t)}
+          detail={t('home.thisWindow')}
         />
         <MetricCard
           icon="shield"
           iconTone="blue"
-          label="Confidence"
+          label={t('home.confidence')}
           value={
             quote?.status === 'valid'
-              ? quote.confidence
+              ? t(`home.confidence.${quote.confidence}`)
               : quote?.status === 'pending'
-                ? 'Pending'
-                : 'Unavailable'
+                ? t('home.pending')
+                : t('home.unavailable')
           }
           detail={
             quote?.validObservationCount
-              ? `${quote.validObservationCount} valid observations`
-              : 'Need paired deltas'
+              ? formatObservationCount(quote.validObservationCount, locale, t)
+              : t('home.needPairedDeltas')
           }
         />
       </div>
       <footer className="app-footer">
         <span>
           <Icon name="info" size={16} />
-          Uses cumulative weekly usage and fetched API rates; short-term spikes are filtered.
+          {t('home.footer')}
         </span>
         <LiveRefreshStatus />
       </footer>
@@ -650,7 +690,7 @@ export default function App() {
     void refresh(nextRange);
   };
 
-  const handleSettingChange = async (key: keyof AppSettings, value: number | boolean) => {
+  const handleSettingChange = async (key: keyof AppSettings, value: number | boolean | string) => {
     if (!settings) return;
     const nextSettings = { ...settings, [key]: value };
     setSettings(nextSettings);
@@ -778,6 +818,7 @@ export default function App() {
     reconciliationIntervalHours: 1,
     monitoringGapMinutes: 5,
     reducedMotion: false,
+    locale: 'system' as const,
     appearance: 'dark' as const,
     currency: 'USD' as const,
     localOnly: true as const,
@@ -787,13 +828,15 @@ export default function App() {
     installationMarker: '',
     customPricing: [],
   };
+  const locale: Locale =
+    displaySettings.locale === 'system' ? detectLocale() : displaySettings.locale;
 
   const renderPage = () => {
     if (isLoading && !history)
       return (
         <div className="loading-state">
           <span className="loading-spinner" />
-          Loading local state…
+          {translate(locale, 'common.loading')}
         </div>
       );
     switch (active) {
@@ -874,31 +917,36 @@ export default function App() {
 
   if (starterPageVisible && settings) {
     return (
-      <StarterPage
-        version={updateState.currentVersion || CURRENT_APP_VERSION}
-        onComplete={handleStarterPageComplete}
-      />
+      <I18nProvider locale={locale}>
+        <StarterPage
+          version={updateState.currentVersion || CURRENT_APP_VERSION}
+          onComplete={handleStarterPageComplete}
+        />
+      </I18nProvider>
     );
   }
 
   return (
-    <div className="app-window">
-      <SideNav
-        active={active}
-        status={status}
-        onNavigate={setActive}
-        updateState={updateState}
-        onUpdate={() => void handleUpdate()}
-      />
-      <main className="app-content">
-        {status.state === 'recalibrating' && <LocalIndexingBanner detail={status.detail} />}
-        {loadError && (
-          <div className="global-error" role="alert">
-            Local state is unavailable. Check the Diagnostics and Setup pages, then retry detection.
-          </div>
-        )}
-        {renderPage()}
-      </main>
-    </div>
+    <I18nProvider locale={locale}>
+      <div className="app-window" lang={locale}>
+        <SideNav
+          active={active}
+          status={status}
+          observedEventCount={diagnostics?.totalEvents ?? 0}
+          onNavigate={setActive}
+          updateState={updateState}
+          onUpdate={() => void handleUpdate()}
+        />
+        <main className="app-content">
+          {status.state === 'recalibrating' && <LocalIndexingBanner />}
+          {loadError && (
+            <div className="global-error" role="alert">
+              {translate(locale, 'common.localError')}
+            </div>
+          )}
+          {renderPage()}
+        </main>
+      </div>
+    </I18nProvider>
   );
 }
